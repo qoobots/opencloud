@@ -1,0 +1,1624 @@
+openapi: 3.0.3
+
+info:
+  title: OpenCloud 控制台 API
+  description: |
+    OpenCloud 云计算管理平台统一 API 接口文档。
+    
+    ## 认证方式
+    
+    所有需要认证的接口需在 Header 中携带：
+    ```
+    Authorization: Bearer <accessToken>
+    ```
+    
+    ## 统一响应格式
+    
+    ```json
+    {
+      "code":    0,
+      "message": "操作成功",
+      "data":    {}
+    }
+    ```
+    
+    - `code = 0`：成功
+    - `code != 0`：失败，`message` 中包含错误说明
+    
+    ## 模块说明
+    
+    | 模块 | 路径前缀 | 说明 |
+    |------|---------|------|
+    | 认证授权 | `/auth` | 登录、登出、Token 刷新、验证码、修改密码 |
+    | 系统管理 | `/system` | 用户、角色、菜单、操作日志管理 |
+    | 云平台管理 | `/cloud` | 集群、云主机、网络、存储、K8s 管理 |
+    | 监控告警 | `/monitor` | 指标查询、告警规则、通知渠道管理 |
+    | 运维管理 | `/actuator` | 健康检查、Prometheus 指标 |
+
+  version: "1.0.0"
+  contact:
+    name: OpenCloud 开发团队
+
+servers:
+  - url: http://localhost:8080
+    description: 开发环境
+  - url: https://api.opencloud.example.com
+    description: 生产环境
+
+tags:
+  - name: 认证授权
+    description: 用户登录、Token 管理、验证码、密码修改
+  - name: 系统管理-用户
+    description: 用户增删改查、状态管理
+  - name: 系统管理-角色
+    description: 角色定义与权限分配
+  - name: 系统管理-菜单
+    description: 菜单树维护、动态路由
+  - name: 系统管理-日志
+    description: 操作日志、登录日志查询
+  - name: 云平台-集群
+    description: 集群配置与连接测试
+  - name: 云平台-云主机
+    description: OpenStack Nova 云主机管理
+  - name: 云平台-网络
+    description: Neutron 网络/子网/安全组管理
+  - name: 云平台-存储
+    description: Cinder 卷/快照、Ceph RGW 管理
+  - name: 云平台-K8s
+    description: Kubernetes 工作负载/服务/配置管理
+  - name: 监控-指标
+    description: Prometheus PromQL 查询
+  - name: 监控-Grafana
+    description: Grafana 面板集成
+  - name: 监控-告警规则
+    description: 告警规则 CRUD
+  - name: 监控-告警记录
+    description: 告警事件查询与确认
+  - name: 监控-静默规则
+    description: 告警静默管理
+  - name: 监控-通知渠道
+    description: 通知渠道配置
+  - name: 监控-通知日志
+    description: 通知发送记录查询
+  - name: 运维管理
+    description: Actuator 健康检查与指标
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ─── 通用响应 ───
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: 操作成功
+        data:
+          nullable: true
+
+    PageResult:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: 操作成功
+        data:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 100
+            pages:
+              type: integer
+              example: 10
+            current:
+              type: integer
+              example: 1
+            size:
+              type: integer
+              example: 10
+            records:
+              type: array
+              items: {}
+
+    # ─── 认证授权 ───
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: Admin@123
+        captchaKey:
+          type: string
+          description: 验证码 Key（启用验证码时必填）
+        captchaCode:
+          type: string
+          description: 验证码内容（启用验证码时必填）
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpireAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+        refreshTokenExpireAt:
+          type: string
+          format: date-time
+        tokenType:
+          type: string
+          example: Bearer
+        userInfo:
+          type: object
+          properties:
+            userId:
+              type: string
+            username:
+              type: string
+            nickname:
+              type: string
+            tenantId:
+              type: string
+
+    CaptchaVO:
+      type: object
+      properties:
+        captchaKey:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        captchaImage:
+          type: string
+          description: Base64 编码图片，前缀 data:image/png;base64,...
+
+    CurrentUserVO:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        nickname:
+          type: string
+        avatar:
+          type: string
+        tenantId:
+          type: string
+        tenantName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["ROLE_ADMIN"]
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["system:user:list", "system:user:add"]
+
+    # ─── 系统管理 ───
+    SysUserVO:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        nickname:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        gender:
+          type: integer
+          description: 0=未知 1=男 2=女
+        status:
+          type: integer
+          description: 0=正常 1=禁用
+        roles:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SysRoleVO:
+      type: object
+      properties:
+        id:
+          type: string
+        roleName:
+          type: string
+        roleCode:
+          type: string
+        description:
+          type: string
+        status:
+          type: integer
+        sort:
+          type: integer
+
+    SysMenuVO:
+      type: object
+      properties:
+        id:
+          type: string
+        parentId:
+          type: string
+        menuName:
+          type: string
+        menuType:
+          type: string
+          enum: [M, C, B]
+        path:
+          type: string
+        component:
+          type: string
+        permission:
+          type: string
+        icon:
+          type: string
+        sort:
+          type: integer
+        hidden:
+          type: integer
+        status:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/SysMenuVO'
+
+    # ─── 云平台 ───
+    ClusterConfigVO:
+      type: object
+      properties:
+        id:
+          type: string
+        clusterName:
+          type: string
+        clusterType:
+          type: string
+          enum: [OPENSTACK, CEPH, KUBERNETES]
+        description:
+          type: string
+        status:
+          type: integer
+          description: 0=启用 1=禁用 2=离线
+        lastCheckTime:
+          type: string
+          format: date-time
+        lastCheckResult:
+          type: string
+          enum: [SUCCESS, FAILED]
+
+    # ─── 监控告警 ───
+    AlertRuleVO:
+      type: object
+      properties:
+        id:
+          type: string
+        ruleName:
+          type: string
+        expr:
+          type: string
+        duration:
+          type: string
+          example: 5m
+        severity:
+          type: string
+          enum: [critical, warning, info]
+        summary:
+          type: string
+        description:
+          type: string
+        status:
+          type: integer
+        notifyChannels:
+          type: array
+          items:
+            type: string
+
+    AlertRecordVO:
+      type: object
+      properties:
+        id:
+          type: string
+        alertName:
+          type: string
+        severity:
+          type: string
+        summary:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        status:
+          type: string
+          enum: [firing, resolved, acked]
+        firedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        notifyCount:
+          type: integer
+
+    NotifyChannelVO:
+      type: object
+      properties:
+        id:
+          type: string
+        channelName:
+          type: string
+        channelType:
+          type: string
+          enum: [EMAIL, DINGTALK, WECHAT_WORK, WEBHOOK]
+        status:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+# ═══════════════════════════════════════════════════════════════
+# API 接口定义
+# ═══════════════════════════════════════════════════════════════
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────
+  # 认证授权（auth）
+  # ─────────────────────────────────────────────────────────────
+
+  /auth/captcha:
+    get:
+      tags: [认证授权]
+      summary: 获取图形验证码
+      description: 返回 Base64 编码验证码图片和对应的 captchaKey，登录时需携带。验证码 TTL 5 分钟，一次有效。
+      operationId: getCaptcha
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CaptchaVO'
+
+  /auth/login:
+    post:
+      tags: [认证授权]
+      summary: 用户登录
+      description: |
+        用户名密码登录，返回 AccessToken（2h）+ RefreshToken（7d）。
+        
+        **安全规则：**
+        - 连续失败 5 次锁定账号 15 分钟
+        - 同一 IP 每分钟限制 10 次请求
+        - 生产环境需传入 captchaKey + captchaCode
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              normal:
+                summary: 正常登录（无验证码）
+                value:
+                  username: admin
+                  password: Admin@123
+              withCaptcha:
+                summary: 带验证码登录
+                value:
+                  username: admin
+                  password: Admin@123
+                  captchaKey: 550e8400-e29b-41d4-a716-446655440000
+                  captchaCode: 8f3k
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LoginResponse'
+              examples:
+                success:
+                  value:
+                    code: 0
+                    message: 登录成功
+                    data:
+                      accessToken: eyJ...
+                      accessTokenExpireAt: 2026-04-01T10:00:00Z
+                      refreshToken: f47ac10b-...
+                      refreshTokenExpireAt: 2026-04-08T08:00:00Z
+                      tokenType: Bearer
+                      userInfo:
+                        userId: "1"
+                        username: admin
+                        nickname: Administrator
+                        tenantId: "1"
+                locked:
+                  value:
+                    code: 20003
+                    message: 账号已锁定，请 14 分钟后重试
+                    data: null
+
+  /auth/token/refresh:
+    post:
+      tags: [认证授权]
+      summary: 刷新 Token
+      description: |
+        使用 RefreshToken 换取新的 AccessToken 和 RefreshToken。
+        
+        旧 RefreshToken 立即失效（防重放攻击）。
+      operationId: refreshToken
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          description: 用户 ID（辅助 Redis Key 定位）
+        - name: X-Old-Jti
+          in: header
+          required: true
+          schema:
+            type: string
+          description: 旧 AccessToken 的 jti（UUID）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                          accessTokenExpireAt:
+                            type: string
+                          refreshToken:
+                            type: string
+                          refreshTokenExpireAt:
+                            type: string
+
+  /auth/logout:
+    post:
+      tags: [认证授权]
+      summary: 用户登出
+      description: |
+        当前 AccessToken 写入黑名单，关联 RefreshToken 删除，写入登出日志。
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /auth/me:
+    get:
+      tags: [认证授权]
+      summary: 获取当前用户信息
+      description: 返回当前登录用户的基础信息、角色列表和权限码集合。
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CurrentUserVO'
+
+  /auth/password/change:
+    post:
+      tags: [认证授权]
+      summary: 修改密码
+      description: |
+        修改当前用户密码。修改成功后所有在线 Token 立即失效，需重新登录。
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword, confirmPassword]
+              properties:
+                oldPassword:
+                  type: string
+                  example: Admin@123
+                newPassword:
+                  type: string
+                  example: NewPass@678
+                confirmPassword:
+                  type: string
+                  example: NewPass@678
+      responses:
+        '200':
+          description: 修改成功，请重新登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /auth/admin/force-logout/{targetUserId}:
+    post:
+      tags: [认证授权]
+      summary: 管理员强制下线
+      description: 清除目标用户所有 Token（含 tokenVersion +1），强制下线。需要 `auth:admin:force-logout` 权限。
+      operationId: forceLogout
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 强制下线成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /auth/admin/unlock/{targetUserId}:
+    post:
+      tags: [认证授权]
+      summary: 管理员解锁账号
+      description: 解锁被锁定账号，清零失败计数。需要 `auth:admin:unlock` 权限。
+      operationId: unlockAccount
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 解锁成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 系统管理 - 用户管理（system）
+  # ─────────────────────────────────────────────────────────────
+
+  /system/users:
+    get:
+      tags: [系统管理-用户]
+      summary: 分页查询用户列表
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: nickname
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+    post:
+      tags: [系统管理-用户]
+      summary: 新增用户
+      operationId: addUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, nickname]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                nickname:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                roleIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /system/users/{id}:
+    get:
+      tags: [系统管理-用户]
+      summary: 获取用户详情
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SysUserVO'
+
+    put:
+      tags: [系统管理-用户]
+      summary: 修改用户
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                avatar:
+                  type: string
+                gender:
+                  type: integer
+                roleIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+    delete:
+      tags: [系统管理-用户]
+      summary: 删除用户
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /system/users/{id}/status:
+    patch:
+      tags: [系统管理-用户]
+      summary: 修改用户状态（启用/禁用）
+      operationId: updateUserStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: integer
+                  enum: [0, 1]
+                  description: 0=启用 1=禁用
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 系统管理 - 角色管理
+  # ─────────────────────────────────────────────────────────────
+
+  /system/roles:
+    get:
+      tags: [系统管理-角色]
+      summary: 查询角色列表
+      operationId: listRoles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roleName
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+    post:
+      tags: [系统管理-角色]
+      summary: 新增角色
+      operationId: addRole
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleName, roleCode]
+              properties:
+                roleName:
+                  type: string
+                roleCode:
+                  type: string
+                description:
+                  type: string
+                menuIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /system/roles/{id}/menus:
+    put:
+      tags: [系统管理-角色]
+      summary: 分配角色菜单权限
+      operationId: assignRoleMenus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [menuIds]
+              properties:
+                menuIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 分配成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 系统管理 - 菜单管理
+  # ─────────────────────────────────────────────────────────────
+
+  /system/menus/tree:
+    get:
+      tags: [系统管理-菜单]
+      summary: 获取完整菜单树
+      operationId: getMenuTree
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SysMenuVO'
+
+  /system/menus/user-tree:
+    get:
+      tags: [系统管理-菜单]
+      summary: 获取当前用户菜单树（用于前端动态路由）
+      operationId: getUserMenuTree
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SysMenuVO'
+
+  # ─────────────────────────────────────────────────────────────
+  # 系统管理 - 操作日志
+  # ─────────────────────────────────────────────────────────────
+
+  /system/operation-logs:
+    get:
+      tags: [系统管理-日志]
+      summary: 分页查询操作日志
+      operationId: listOperationLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: module
+          in: query
+          schema:
+            type: string
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: integer
+        - name: startTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+  # ─────────────────────────────────────────────────────────────
+  # 云平台 - 集群管理（cloud）
+  # ─────────────────────────────────────────────────────────────
+
+  /cloud/clusters:
+    get:
+      tags: [云平台-集群]
+      summary: 查询集群列表
+      operationId: listClusters
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ClusterConfigVO'
+
+    post:
+      tags: [云平台-集群]
+      summary: 新增集群配置
+      operationId: addCluster
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clusterName, clusterType, configJson]
+              properties:
+                clusterName:
+                  type: string
+                clusterType:
+                  type: string
+                  enum: [OPENSTACK, CEPH, KUBERNETES]
+                configJson:
+                  type: object
+                  description: 集群连接配置（明文，后端加密存储）
+                description:
+                  type: string
+      responses:
+        '200':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /cloud/clusters/{id}/test:
+    post:
+      tags: [云平台-集群]
+      summary: 测试集群连接
+      operationId: testClusterConnection
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 连接测试结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                          message:
+                            type: string
+
+  # ─────────────────────────────────────────────────────────────
+  # 云平台 - 云主机管理
+  # ─────────────────────────────────────────────────────────────
+
+  /cloud/clusters/{clusterId}/servers:
+    get:
+      tags: [云平台-云主机]
+      summary: 查询云主机列表
+      operationId: listServers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+    post:
+      tags: [云平台-云主机]
+      summary: 创建云主机
+      operationId: createServer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, flavorId, imageId, networkId]
+              properties:
+                name:
+                  type: string
+                flavorId:
+                  type: string
+                imageId:
+                  type: string
+                networkId:
+                  type: string
+                keyPairName:
+                  type: string
+                securityGroupIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 创建任务已提交（异步）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          taskId:
+                            type: string
+                          serverId:
+                            type: string
+
+  /cloud/clusters/{clusterId}/servers/{serverId}/action:
+    post:
+      tags: [云平台-云主机]
+      summary: 云主机操作（开机/关机/重启/删除）
+      operationId: serverAction
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [START, STOP, REBOOT, DELETE, HARD_REBOOT]
+      responses:
+        '200':
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 监控 - 告警规则
+  # ─────────────────────────────────────────────────────────────
+
+  /monitor/alert-rules:
+    get:
+      tags: [监控-告警规则]
+      summary: 分页查询告警规则
+      operationId: listAlertRules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: ruleName
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+    post:
+      tags: [监控-告警规则]
+      summary: 创建告警规则
+      operationId: createAlertRule
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ruleName, expr, severity]
+              properties:
+                ruleName:
+                  type: string
+                expr:
+                  type: string
+                  description: PromQL 表达式（后端自动校验语法）
+                duration:
+                  type: string
+                  example: 5m
+                severity:
+                  type: string
+                  enum: [critical, warning, info]
+                summary:
+                  type: string
+                description:
+                  type: string
+                notifyChannels:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /monitor/alert-rules/{id}:
+    put:
+      tags: [监控-告警规则]
+      summary: 更新告警规则
+      operationId: updateAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleVO'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+    delete:
+      tags: [监控-告警规则]
+      summary: 删除告警规则
+      operationId: deleteAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 监控 - 告警记录
+  # ─────────────────────────────────────────────────────────────
+
+  /monitor/alert-records:
+    get:
+      tags: [监控-告警记录]
+      summary: 分页查询告警记录
+      operationId: listAlertRecords
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: alertName
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+  /monitor/alert-records/{id}/ack:
+    post:
+      tags: [监控-告警记录]
+      summary: 确认告警（ACK）
+      operationId: ackAlertRecord
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 确认成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 监控 - 通知渠道
+  # ─────────────────────────────────────────────────────────────
+
+  /monitor/notify-channels:
+    get:
+      tags: [监控-通知渠道]
+      summary: 查询通知渠道列表
+      operationId: listNotifyChannels
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotifyChannelVO'
+
+    post:
+      tags: [监控-通知渠道]
+      summary: 创建通知渠道
+      operationId: createNotifyChannel
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channelName, channelType, configJson]
+              properties:
+                channelName:
+                  type: string
+                channelType:
+                  type: string
+                  enum: [EMAIL, DINGTALK, WECHAT_WORK, WEBHOOK]
+                configJson:
+                  type: object
+                  description: 渠道配置（明文，后端加密存储）
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /monitor/notify-channels/{id}/test:
+    post:
+      tags: [监控-通知渠道]
+      summary: 测试通知渠道
+      operationId: testNotifyChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 测试结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                          message:
+                            type: string
+
+  # ─────────────────────────────────────────────────────────────
+  # 监控 - AlertManager Webhook（内部接口，由 AlertManager 回调）
+  # ─────────────────────────────────────────────────────────────
+
+  /monitor/webhook/alertmanager:
+    post:
+      tags: [监控-告警记录]
+      summary: AlertManager Webhook 接收（内部接口）
+      description: |
+        由 AlertManager 调用，接收告警推送。
+        
+        - 幂等写入（基于 alertName + instance + firedAt 去重）
+        - 检查静默规则
+        - 写入告警记录
+        - 异步触发通知分发
+        
+        **注意：此接口不对外开放，应通过网络策略限制只允许 AlertManager IP 访问。**
+      operationId: alertManagerWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: AlertManager Webhook 标准格式（v4）
+      responses:
+        '200':
+          description: 接收成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ─────────────────────────────────────────────────────────────
+  # 运维管理 - Actuator
+  # ─────────────────────────────────────────────────────────────
+
+  /actuator/health:
+    get:
+      tags: [运维管理]
+      summary: 健康检查
+      description: 检查数据库、Redis 连接状态。K8s liveness/readiness probe 使用此接口。
+      operationId: health
+      responses:
+        '200':
+          description: 服务健康
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+        '503':
+          description: 服务不健康
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: DOWN
+
+  /actuator/prometheus:
+    get:
+      tags: [运维管理]
+      summary: Prometheus 指标（文本格式）
+      description: |
+        暴露 JVM / HTTP 请求 / HikariCP 连接池 Prometheus 格式指标。
+        
+        **生产环境应通过 Nginx ACL 限制访问 IP。**
+      operationId: prometheusMetrics
+      responses:
+        '200':
+          description: 指标数据（Prometheus 文本格式）
+          content:
+            text/plain:
+              schema:
+                type: string

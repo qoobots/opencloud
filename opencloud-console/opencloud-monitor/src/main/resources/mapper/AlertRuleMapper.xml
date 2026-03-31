@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qoobot.opencloud.monitor.alert.rule.mapper.AlertRuleMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="AlertRuleRM" type="com.qoobot.opencloud.monitor.alert.rule.domain.entity.MonitorAlertRule">
+        <id     column="id"                  property="id"/>
+        <result column="tenant_id"           property="tenantId"/>
+        <result column="rule_name"           property="ruleName"/>
+        <result column="description"         property="description"/>
+        <result column="promql_expr"         property="promqlExpr"/>
+        <result column="severity"            property="severity"/>
+        <result column="duration"            property="duration"/>
+        <result column="notify_channel_ids"  property="notifyChannelIds"/>
+        <result column="notify_on_resolve"   property="notifyOnResolve"/>
+        <result column="status"              property="status"/>
+        <result column="deleted"             property="deleted"/>
+        <result column="created_at"          property="createdAt"/>
+        <result column="updated_at"          property="updatedAt"/>
+        <result column="created_by"          property="createdBy"/>
+        <result column="updated_by"          property="updatedBy"/>
+    </resultMap>
+
+    <!-- 分页查询告警规则 -->
+    <select id="selectPageVO" resultMap="AlertRuleRM">
+        SELECT *
+        FROM monitor_alert_rule
+        WHERE tenant_id = #{tenantId}
+          AND deleted = 0
+        <if test="q != null and q.ruleName != null and q.ruleName != ''">
+            AND rule_name LIKE CONCAT('%', #{q.ruleName}, '%')
+        </if>
+        <if test="q != null and q.severity != null and q.severity != ''">
+            AND severity = #{q.severity}
+        </if>
+        <if test="q != null and q.status != null and q.status != ''">
+            AND status = #{q.status}
+        </if>
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

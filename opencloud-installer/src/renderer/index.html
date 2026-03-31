@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>OpenCloud 安装工具</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ══════════════════ 自定义标题栏 ══════════════════ -->
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-logo">
+      <span class="logo-icon">🚀</span>
+      <span class="logo-text">OpenCloud 安装工具</span>
+      <span class="logo-ver" id="appVersion">v1.0.0</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="ctrl-btn" id="btnMin" title="最小化">─</button>
+      <button class="ctrl-btn" id="btnMax" title="最大化">□</button>
+      <button class="ctrl-btn close" id="btnClose" title="关闭">✕</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════ 主体布局 ══════════════════ -->
+  <div class="layout">
+
+    <!-- ─── 左侧导航 ─────────────────────────────── -->
+    <nav class="sidebar">
+      <div class="nav-item active" data-page="servers">
+        <span class="nav-icon">🖥</span>
+        <span class="nav-label">服务器</span>
+      </div>
+      <div class="nav-item" data-page="components">
+        <span class="nav-icon">📦</span>
+        <span class="nav-label">组件</span>
+      </div>
+      <div class="nav-item" data-page="install">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-label">安装</span>
+      </div>
+      <div class="nav-sep"></div>
+      <div class="nav-item" id="navLogs">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">日志</span>
+      </div>
+      <div class="nav-item" id="navAbout">
+        <span class="nav-icon">ℹ️</span>
+        <span class="nav-label">关于</span>
+      </div>
+    </nav>
+
+    <!-- ─── 主内容区 ──────────────────────────────── -->
+    <main class="content">
+
+      <!-- ════ 页面：服务器管理 ════ -->
+      <div class="page active" id="page-servers">
+        <div class="page-header">
+          <div>
+            <h2>服务器管理</h2>
+            <p class="subtitle">配置 SSH 连接信息，支持密码和密钥两种认证方式</p>
+          </div>
+          <button class="btn btn-primary" id="btnAddServer">
+            <span>＋</span> 添加服务器
+          </button>
+        </div>
+
+        <div class="server-grid" id="serverGrid">
+          <!-- 由 JS 动态渲染 -->
+          <div class="empty-state" id="serverEmpty">
+            <div class="empty-icon">🖥️</div>
+            <div class="empty-title">还没有服务器</div>
+            <div class="empty-desc">点击右上角「添加服务器」开始配置</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ 页面：组件选择 ════ -->
+      <div class="page" id="page-components">
+        <div class="page-header">
+          <div>
+            <h2>选择安装组件</h2>
+            <p class="subtitle">选择要部署的云计算平台组件，依赖关系会自动处理</p>
+          </div>
+          <div class="comp-actions">
+            <button class="btn btn-ghost" id="btnSelectAll">全选</button>
+            <button class="btn btn-ghost" id="btnSelectNone">全不选</button>
+          </div>
+        </div>
+        <div class="comp-list" id="compList">
+          <!-- 由 JS 动态渲染 -->
+        </div>
+        <div class="dep-note">
+          <span class="dep-icon">ℹ️</span>
+          依赖关系：Ceph → OpenStack / Kubernetes → Prometheus → Grafana
+        </div>
+      </div>
+
+      <!-- ════ 页面：安装 ════ -->
+      <div class="page" id="page-install">
+        <div class="page-header">
+          <div>
+            <h2>执行安装</h2>
+            <p class="subtitle">选择目标服务器并开始自动化部署</p>
+          </div>
+          <div class="install-actions">
+            <button class="btn btn-accent" id="btnInstallAll" title="使用 deploy_all.sh 一键部署全部组件">
+              <span>⚡</span> 一键全部安装
+            </button>
+            <button class="btn btn-success" id="btnStartInstall">
+              <span>▶</span> 按选择安装
+            </button>
+            <button class="btn btn-ghost" id="btnPrecheck" title="安装前检查目标服务器环境">
+              <span>🔎</span> 环境预检
+            </button>
+            <button class="btn btn-danger" id="btnStopInstall" disabled>
+              <span>⏹</span> 停止
+            </button>
+          </div>
+        </div>
+
+        <!-- 服务器选择 -->
+        <div class="install-config card">
+          <div class="card-title">目标服务器</div>
+          <div class="server-select-row">
+            <select class="select" id="targetServer">
+              <option value="">── 请选择服务器 ──</option>
+            </select>
+            <button class="btn btn-ghost" id="btnTestInInstall">🔍 测试连接</button>
+          </div>
+          <div id="serverTestResult" class="test-result"></div>
+        </div>
+
+        <!-- 预检结果（默认隐藏） -->
+        <div class="install-config card" id="precheckCard" style="display:none">
+          <div class="card-title">🔎 环境预检结果</div>
+          <div id="precheckResult" class="precheck-list"></div>
+        </div>
+
+        <!-- 安装概览 -->
+        <div class="install-config card" id="installSummaryCard">
+          <div class="card-title">安装概览</div>
+          <div class="task-list" id="taskList">
+            <!-- 由 JS 渲染 -->
+          </div>
+        </div>
+
+        <!-- 实时日志 -->
+        <div class="log-card card">
+          <div class="log-header">
+            <span class="card-title">实时日志</span>
+            <button class="btn btn-ghost btn-sm" id="btnClearLog">清空</button>
+          </div>
+          <div class="log-container" id="logContainer"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ══════════════════ 弹窗：添加/编辑服务器 ══════════════════ -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal" id="serverModal">
+      <div class="modal-header">
+        <span id="modalTitle">添加服务器</span>
+        <button class="modal-close" id="btnModalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>服务器名称 <span class="required">*</span></label>
+            <input type="text" id="fName" placeholder="如：生产环境-控制节点" />
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <input type="text" id="fNote" placeholder="可选描述" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex3">
+            <label>主机 / IP <span class="required">*</span></label>
+            <input type="text" id="fHost" placeholder="192.168.1.100" />
+          </div>
+          <div class="form-group flex1">
+            <label>端口</label>
+            <input type="number" id="fPort" value="22" min="1" max="65535" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>用户名 <span class="required">*</span></label>
+            <input type="text" id="fUser" placeholder="root" />
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="fPass" placeholder="使用密钥时可留空" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>SSH 私钥文件（优先于密码）</label>
+          <div class="file-input-row">
+            <input type="text" id="fKey" placeholder="可选，选择 .pem 私钥文件" readonly />
+            <button class="btn btn-ghost" id="btnBrowseKey">浏览</button>
+            <button class="btn btn-ghost" id="btnClearKey">清除</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnTestConn">🔍 测试连接</button>
+        <div id="modalTestResult" class="test-result inline"></div>
+        <div class="modal-footer-right">
+          <button class="btn btn-ghost" id="btnModalCancel">取消</button>
+          <button class="btn btn-primary" id="btnModalSave">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ 弹窗：关于 / 帮助 ══════════════════ -->
+  <div class="modal-mask" id="aboutMask">
+    <div class="modal about-modal" id="aboutModal">
+      <div class="modal-header">
+        <span>关于 OpenCloud 安装工具</span>
+        <button class="modal-close" id="btnAboutClose">✕</button>
+      </div>
+      <div class="modal-body about-body">
+        <div class="about-logo">🚀</div>
+        <div class="about-title">OpenCloud 安装工具</div>
+        <div class="about-version" id="aboutVersion">v1.0.0</div>
+
+        <div class="about-section">
+          <div class="about-section-title">📋 目标服务器前置要求</div>
+          <ul class="about-list">
+            <li>操作系统：<strong>Ubuntu 20.04+ / CentOS 8+</strong></li>
+            <li>登录用户：<strong>root</strong> 或具有 sudo 权限的账户</li>
+            <li>SSH 服务：端口可达，默认 <strong>22</strong></li>
+            <li>最低配置：CPU 4 核，内存 <strong>16 GB</strong>，磁盘 <strong>100 GB+</strong></li>
+            <li>网络：能访问外网或配置好本地镜像源</li>
+            <li>Bash 版本：<strong>4.0+</strong>（CentOS 7 需升级）</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title">⚡ 安装组件说明</div>
+          <ul class="about-list">
+            <li><strong>Ceph</strong> — 分布式存储，其他组件的基础依赖</li>
+            <li><strong>OpenStack</strong> — IaaS 虚拟化平台，依赖 Ceph</li>
+            <li><strong>Kubernetes</strong> — 容器编排，依赖 Ceph，需 3 台 Master</li>
+            <li><strong>Prometheus</strong> — 监控系统，依赖 Kubernetes</li>
+            <li><strong>Grafana</strong> — 可视化面板，依赖 Prometheus</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title">📦 安装模式说明</div>
+          <ul class="about-list">
+            <li><strong>一键全部安装</strong> — 调用 <code>deploy_all.sh</code>，自动按依赖顺序部署所有组件</li>
+            <li><strong>按选择安装</strong> — 根据【组件】页面的选择，分组件依次部署</li>
+            <li><strong>环境预检</strong> — 安装前检查目标服务器的 OS、内存、磁盘、root 权限等</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title">📁 日志文件</div>
+          <ul class="about-list">
+            <li>每次安装会生成独立日志文件，存放于 <code>logs/</code> 目录</li>
+            <li>点击左侧【日志】按钮可直接打开日志目录</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div></div>
+        <div class="modal-footer-right">
+          <button class="btn btn-primary" id="btnAboutOk">知道了</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

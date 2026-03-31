@@ -1,0 +1,28 @@
+# ─── 测试环境配置覆盖 ──────────────────────────────────────────
+# 激活方式：spring.profiles.active=test
+
+spring:
+  # 测试环境使用独立测试数据库（避免污染开发数据）
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:opencloud_test}
+    username: ${DB_USER:opencloud_test}
+    password: ${DB_PASS:opencloud_test}
+
+  flyway:
+    # 测试环境允许在校验失败时自动 clean（方便每次测试从干净状态开始）
+    clean-on-validation-error: true
+    clean-disabled: false
+
+# 测试环境关闭验证码
+opencloud:
+  auth:
+    captcha-enabled: false
+
+# 测试环境打印 SQL
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    com.qoobot.opencloud: debug

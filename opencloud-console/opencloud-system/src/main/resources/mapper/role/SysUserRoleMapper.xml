@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qoobot.opencloud.system.role.mapper.SysUserRoleMapper">
+
+    <!-- 根据用户 ID 删除关联数据 -->
+    <delete id="deleteByUserId">
+        DELETE FROM sys_user_role WHERE user_id = #{userId}
+    </delete>
+
+    <!-- 根据角色 ID 查询用户 ID 列表 -->
+    <select id="selectUserIdsByRoleId" resultType="java.lang.String">
+        SELECT DISTINCT user_id FROM sys_user_role WHERE role_id = #{roleId}
+    </select>
+
+    <!-- 查询角色下用户数量（删除角色前校验） -->
+    <select id="countByRoleId" resultType="int">
+        SELECT COUNT(1) FROM sys_user_role WHERE role_id = #{roleId}
+    </select>
+
+</mapper>

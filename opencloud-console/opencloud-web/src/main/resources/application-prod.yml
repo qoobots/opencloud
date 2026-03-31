@@ -1,0 +1,39 @@
+# ─── 生产环境配置覆盖 ──────────────────────────────────────────
+# 激活方式：SPRING_PROFILES_ACTIVE=prod（Docker 环境变量注入）
+
+spring:
+  datasource:
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 50             # 生产扩大连接池
+
+  flyway:
+    clean-disabled: true               # 生产严禁 flyway clean
+
+# 生产关闭 Swagger
+knife4j:
+  enable: false
+
+# 生产 Actuator 仅暴露必要端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never              # 生产不暴露健康检查详情（防信息泄露）
+
+# 生产开启验证码
+opencloud:
+  auth:
+    captcha-enabled: true
+
+# 生产日志级别
+logging:
+  level:
+    com.qoobot.opencloud: info
+    org.springframework.security: warn
+    com.baomidou.mybatisplus: warn
+  file:
+    name: /logs/opencloud/opencloud-console.log

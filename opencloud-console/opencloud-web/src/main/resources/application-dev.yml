@@ -1,0 +1,41 @@
+# ─── 开发环境配置覆盖 ──────────────────────────────────────────
+# 激活方式：spring.profiles.active=dev（application.yml 中默认已配置）
+
+spring:
+  flyway:
+    # 开发环境关闭校验错误时自动 clean（危险！仅测试环境可开启）
+    clean-on-validation-error: false
+
+  # 开发环境可使用 Spring MVC 自动重启（配合 spring-boot-devtools）
+  devtools:
+    restart:
+      enabled: true
+
+# 开发环境打印 SQL
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 开发环境关闭验证码，开放 CORS
+opencloud:
+  auth:
+    captcha-enabled: false
+  web:
+    allowed-origins: "*"
+
+# 开发环境 Actuator 开放所有端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
+# 开发日志详细级别
+logging:
+  level:
+    com.qoobot.opencloud: debug
+    org.springframework.security: debug
+    org.springframework.web: debug

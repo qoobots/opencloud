@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qoobot.opencloud.monitor.alert.silence.mapper.AlertSilenceMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="AlertSilenceRM" type="com.qoobot.opencloud.monitor.alert.silence.domain.entity.MonitorAlertSilence">
+        <id     column="id"           property="id"/>
+        <result column="tenant_id"    property="tenantId"/>
+        <result column="silence_name" property="silenceName"/>
+        <result column="description"  property="description"/>
+        <result column="match_labels" property="matchLabels"/>
+        <result column="start_at"     property="startAt"/>
+        <result column="end_at"       property="endAt"/>
+        <result column="status"       property="status"/>
+        <result column="created_at"   property="createdAt"/>
+        <result column="updated_at"   property="updatedAt"/>
+        <result column="created_by"   property="createdBy"/>
+        <result column="updated_by"   property="updatedBy"/>
+    </resultMap>
+
+</mapper>

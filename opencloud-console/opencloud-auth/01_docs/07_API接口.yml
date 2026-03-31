@@ -1,0 +1,874 @@
+openapi: 3.0.3
+
+info:
+  title: opencloud-auth API
+  description: |
+    OpenCloud 云管平台统一认证授权模块接口文档。
+
+    ## 认证方式
+    除白名单接口（验证码、登录、Token 刷新）外，所有接口均需在请求头携带 AccessToken：
+    ```
+    Authorization: Bearer <accessToken>
+    ```
+
+    ## 统一响应格式
+    所有接口返回 `Result<T>` 结构：
+    ```json
+    { "code": 0, "message": "success", "data": {...} }
+    ```
+    - `code = 0`：业务成功
+    - `code != 0`：业务失败，`message` 为错误描述，`data` 为 null
+
+    ## 异常码规范
+    | 系列 | HTTP 状态 | 说明 |
+    |------|-----------|------|
+    | AUTH_0xxx | 200 | 登录业务异常 |
+    | AUTH_0006 | 429 | 登录限频 |
+    | AUTH_1xxx | 401 | Token 相关（未授权） |
+    | AUTH_2xxx | 403 | 权限相关（禁止访问） |
+    | AUTH_3xxx | 400 | 密码修改参数错误 |
+    | AUTH_4xxx | 400 / 404 | 管理操作参数错误 |
+
+  version: 1.0.0
+  contact:
+    name: OpenCloud 开发团队
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+  - url: https://api.opencloud.example.com
+    description: 生产环境
+
+tags:
+  - name: captcha
+    description: 验证码
+  - name: auth
+    description: 登录 / 登出 / Token 管理
+  - name: user
+    description: 当前用户信息 / 密码修改
+  - name: admin
+    description: 管理员操作（强制下线 / 解锁账号）
+
+# ============================================================
+# Paths
+# ============================================================
+paths:
+
+  # ----------------------------------------------------------
+  # 1. 获取验证码
+  # ----------------------------------------------------------
+  /auth/captcha:
+    get:
+      tags: [captcha]
+      summary: 获取图形验证码
+      description: |
+        生成图形验证码，返回 captchaKey 和 Base64 图片。
+        - 验证码 TTL：5 分钟，一次有效（校验后立即销毁）
+        - 大小写不敏感（存储时统一转为小写）
+        - 登录时需将 captchaKey + captchaCode 一并提交
+      operationId: getCaptcha
+      security: []    # 白名单，不需要 Token
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCaptchaVO'
+              example:
+                code: 0
+                message: success
+                data:
+                  captchaKey: "550e8400-e29b-41d4-a716-446655440000"
+                  captchaImage: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+
+
+  # ----------------------------------------------------------
+  # 2. 用户登录
+  # ----------------------------------------------------------
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: 用户登录
+      description: |
+        账号密码登录，返回 AccessToken + RefreshToken。
+
+        **业务规则：**
+        - 账号不存在与密码错误返回相同错误（AUTH_0001），防止账号枚举
+        - 连续失败 5 次触发账号锁定（15 分钟），锁定期间拒绝登录
+        - 启用验证码时，captchaKey + captchaCode 为必填项
+        - 同一 IP 每分钟超过 10 次请求返回 429
+      operationId: login
+      security: []    # 白名单，不需要 Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              withCaptcha:
+                summary: 带验证码登录
+                value:
+                  username: "admin"
+                  password: "Admin@12345"
+                  captchaKey: "550e8400-e29b-41d4-a716-446655440000"
+                  captchaCode: "8f3k"
+              withoutCaptcha:
+                summary: 不带验证码登录（验证码关闭时）
+                value:
+                  username: "admin"
+                  password: "Admin@12345"
+      responses:
+        '200':
+          description: 登录结果（成功或业务失败均返回 200，通过 code 区分）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultLoginResponse'
+              examples:
+                success:
+                  summary: 登录成功
+                  value:
+                    code: 0
+                    message: success
+                    data:
+                      accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      accessTokenExpireAt: "2026-04-01T10:00:00Z"
+                      refreshToken: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                      refreshTokenExpireAt: "2026-04-08T08:00:00Z"
+                      tokenType: "Bearer"
+                      userInfo:
+                        userId: "u001"
+                        username: "admin"
+                        nickname: "管理员"
+                        tenantId: "t001"
+                passwordError:
+                  summary: 账号或密码错误
+                  value:
+                    code: 1
+                    message: "账号或密码错误"
+                    data: null
+                accountLocked:
+                  summary: 账号被锁定
+                  value:
+                    code: 1
+                    message: "账号已锁定，剩余 12 分钟解锁"
+                    data: null
+        '429':
+          description: 登录请求超频
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultError'
+              example:
+                code: 1
+                message: "操作过于频繁，请稍后再试"
+                data: null
+
+
+  # ----------------------------------------------------------
+  # 3. Token 刷新
+  # ----------------------------------------------------------
+  /auth/token/refresh:
+    post:
+      tags: [auth]
+      summary: 刷新 AccessToken
+      description: |
+        使用 RefreshToken 换取新的 AccessToken + RefreshToken。
+
+        **业务规则：**
+        - RefreshToken 单次有效，刷新后旧 Token 立即废弃
+        - 若检测到重放攻击（同一 RefreshToken 被使用两次），清除该用户所有 RefreshToken 并返回 401
+        - 新 AccessToken 携带当前 tokenVersion，确保强制下线仍然有效
+      operationId: refreshToken
+      security: []    # 白名单，自行校验 RefreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+            example:
+              refreshToken: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTokenRefreshResponse'
+              example:
+                code: 0
+                message: success
+                data:
+                  accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  accessTokenExpireAt: "2026-04-01T12:00:00Z"
+                  refreshToken: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  refreshTokenExpireAt: "2026-04-08T10:00:00Z"
+        '401':
+          description: RefreshToken 无效 / 已过期 / 重放攻击
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultError'
+              examples:
+                expired:
+                  summary: RefreshToken 已过期
+                  value:
+                    code: 1
+                    message: "登录已过期，请重新登录"
+                    data: null
+                replay:
+                  summary: 疑似重放攻击
+                  value:
+                    code: 1
+                    message: "安全风险，请重新登录"
+                    data: null
+
+
+  # ----------------------------------------------------------
+  # 4. 用户登出
+  # ----------------------------------------------------------
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: 用户登出
+      description: |
+        主动退出登录，使当前 AccessToken 和关联 RefreshToken 立即失效。
+
+        **副作用：**
+        - 当前 AccessToken jti 写入 Redis 黑名单（TTL = Token 剩余有效期）
+        - 关联 RefreshToken 从 Redis 删除
+        - 写入登出日志（status=LOGOUT）
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              example:
+                code: 0
+                message: "登出成功"
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+
+  # ----------------------------------------------------------
+  # 5. 获取当前用户信息
+  # ----------------------------------------------------------
+  /auth/me:
+    get:
+      tags: [user]
+      summary: 获取当前登录用户信息
+      description: |
+        返回当前用户的基础信息、角色列表和权限标识集合。
+
+        **性能说明：**
+        - 权限集合优先读取 Redis 缓存（TTL 10 分钟）
+        - 超级管理员（ROLE_SUPER_ADMIN）不缓存权限集，直接放行
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCurrentUserResponse'
+              example:
+                code: 0
+                message: success
+                data:
+                  userId: "u001"
+                  username: "admin"
+                  nickname: "管理员"
+                  avatar: "https://cdn.example.com/avatar/u001.png"
+                  tenantId: "t001"
+                  tenantName: "默认租户"
+                  roles:
+                    - "ROLE_ADMIN"
+                  permissions:
+                    - "system:user:list"
+                    - "system:user:add"
+                    - "system:role:edit"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+
+  # ----------------------------------------------------------
+  # 6. 修改密码
+  # ----------------------------------------------------------
+  /auth/password/change:
+    post:
+      tags: [user]
+      summary: 修改登录密码
+      description: |
+        已登录用户修改自己的密码。
+
+        **密码强度要求：**
+        - 至少 8 位
+        - 同时包含大写字母、小写字母、数字
+
+        **修改成功后：**
+        - 当前 AccessToken 加入黑名单
+        - 该用户所有 RefreshToken 被清除
+        - 写入操作日志（CHANGE_PASSWORD）
+        - 前端应跳转到登录页重新登录
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+            example:
+              oldPassword: "Admin@12345"
+              newPassword: "NewPass@678"
+              confirmPassword: "NewPass@678"
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              example:
+                code: 0
+                message: "密码修改成功，请重新登录"
+                data: null
+        '400':
+          description: 参数校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultError'
+              examples:
+                oldPasswordWrong:
+                  summary: 旧密码不正确
+                  value:
+                    code: 1
+                    message: "旧密码不正确"
+                    data: null
+                passwordTooWeak:
+                  summary: 密码强度不足
+                  value:
+                    code: 1
+                    message: "密码须至少 8 位，包含大小写字母和数字"
+                    data: null
+                sameAsOld:
+                  summary: 新旧密码相同
+                  value:
+                    code: 1
+                    message: "新密码不能与旧密码相同"
+                    data: null
+                confirmMismatch:
+                  summary: 两次密码不一致
+                  value:
+                    code: 1
+                    message: "两次输入密码不一致"
+                    data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+
+  # ----------------------------------------------------------
+  # 7. 管理员强制下线
+  # ----------------------------------------------------------
+  /auth/admin/force-logout/{targetUserId}:
+    post:
+      tags: [admin]
+      summary: 强制下线指定用户
+      description: |
+        管理员将指定用户强制踢出，使其所有 Token 立即失效。
+
+        **所需权限：** `auth:admin:force-logout`
+
+        **执行逻辑：**
+        1. Redis `auth:token:version:{userId}` +1（所有旧 AccessToken 自动失效）
+        2. 扫描删除 `auth:refresh:{userId}:*`（清除所有 RefreshToken）
+        3. 写入登录日志（status=FORCE_LOGOUT，补填 logout_time）
+        4. 写入操作日志（operation_type=FORCE_LOGOUT）
+
+        **注意：** 此操作不修改账号状态，被踢出的用户重新登录后可正常使用。
+        如需禁用账号，请通过 system 模块更新用户状态。
+      operationId: forceLogout
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          description: 被强制下线的目标用户 ID
+          schema:
+            type: string
+            example: "u002"
+      responses:
+        '200':
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              example:
+                code: 0
+                message: "已强制下线"
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 目标用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultError'
+              example:
+                code: 1
+                message: "用户不存在"
+                data: null
+
+
+  # ----------------------------------------------------------
+  # 8. 管理员解锁账号
+  # ----------------------------------------------------------
+  /auth/admin/unlock/{targetUserId}:
+    post:
+      tags: [admin]
+      summary: 解锁被锁定账号
+      description: |
+        管理员手动解锁因登录失败次数过多而被锁定的账号。
+
+        **所需权限：** `auth:admin:unlock`
+
+        **执行逻辑：**
+        1. 检查目标账号是否存在且处于 LOCKED 状态
+        2. 更新 `auth_user_credential.status = ACTIVE`
+        3. `login_fail_count = 0`，`lock_expire_time = null`
+        4. 写入操作日志（operation_type=UNLOCK_ACCOUNT）
+
+        **注意：** 账号锁定到期后下次登录会自动解锁，无需手动操作。
+        此接口适用于需要立即解锁（不等待到期）的场景。
+      operationId: unlockAccount
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          description: 需要解锁的目标用户 ID
+          schema:
+            type: string
+            example: "u003"
+      responses:
+        '200':
+          description: 解锁成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+              example:
+                code: 0
+                message: "账号已解锁"
+                data: null
+        '400':
+          description: 账号当前未处于锁定状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultError'
+              example:
+                code: 1
+                message: "账号当前未处于锁定状态"
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 目标用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultError'
+              example:
+                code: 1
+                message: "用户不存在"
+                data: null
+
+
+# ============================================================
+# Components
+# ============================================================
+components:
+
+  # ----------------------------------------------------------
+  # Security Schemes
+  # ----------------------------------------------------------
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        AccessToken（JWT 格式，HS256 签名）。
+        有效期 2 小时，过期后使用 RefreshToken 刷新。
+
+  # ----------------------------------------------------------
+  # Schemas
+  # ----------------------------------------------------------
+  schemas:
+
+    # ---------- Request ----------
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: 登录账号
+          example: "admin"
+          maxLength: 64
+        password:
+          type: string
+          description: 登录密码（明文传输，建议走 HTTPS）
+          example: "Admin@12345"
+          minLength: 8
+          maxLength: 128
+        captchaKey:
+          type: string
+          format: uuid
+          description: 验证码 Key（启用验证码时必填）
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        captchaCode:
+          type: string
+          description: 用户输入的验证码文本（大小写不敏感）
+          example: "8f3k"
+          maxLength: 10
+
+    TokenRefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          format: uuid
+          description: RefreshToken（UUID 格式），登录时返回
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword, confirmPassword]
+      properties:
+        oldPassword:
+          type: string
+          description: 当前密码
+          example: "Admin@12345"
+          minLength: 8
+          maxLength: 128
+        newPassword:
+          type: string
+          description: 新密码（≥8位，包含大小写字母和数字）
+          example: "NewPass@678"
+          minLength: 8
+          maxLength: 128
+        confirmPassword:
+          type: string
+          description: 确认新密码（需与 newPassword 一致）
+          example: "NewPass@678"
+          minLength: 8
+          maxLength: 128
+
+    # ---------- Response Data ----------
+
+    CaptchaVO:
+      type: object
+      properties:
+        captchaKey:
+          type: string
+          format: uuid
+          description: 验证码 Key，登录时需回传
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        captchaImage:
+          type: string
+          description: Base64 编码的验证码图片（data:image/png;base64,...）
+          example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+
+    UserInfoVO:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: 用户 ID
+          example: "u001"
+        username:
+          type: string
+          description: 登录账号
+          example: "admin"
+        nickname:
+          type: string
+          description: 昵称（显示名）
+          example: "管理员"
+        tenantId:
+          type: string
+          description: 所属租户 ID
+          example: "t001"
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT AccessToken，有效期 2 小时
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        accessTokenExpireAt:
+          type: string
+          format: date-time
+          description: AccessToken 过期时间（ISO 8601 UTC）
+          example: "2026-04-01T10:00:00Z"
+        refreshToken:
+          type: string
+          format: uuid
+          description: RefreshToken（UUID 格式），有效期 7 天
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        refreshTokenExpireAt:
+          type: string
+          format: date-time
+          description: RefreshToken 过期时间（ISO 8601 UTC）
+          example: "2026-04-08T08:00:00Z"
+        tokenType:
+          type: string
+          description: Token 类型，固定为 Bearer
+          example: "Bearer"
+        userInfo:
+          $ref: '#/components/schemas/UserInfoVO'
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 新的 JWT AccessToken
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        accessTokenExpireAt:
+          type: string
+          format: date-time
+          description: 新 AccessToken 过期时间
+          example: "2026-04-01T12:00:00Z"
+        refreshToken:
+          type: string
+          format: uuid
+          description: 新的 RefreshToken（旧 Token 已废弃）
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        refreshTokenExpireAt:
+          type: string
+          format: date-time
+          description: 新 RefreshToken 过期时间
+          example: "2026-04-08T10:00:00Z"
+
+    CurrentUserResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: 用户 ID
+          example: "u001"
+        username:
+          type: string
+          description: 登录账号
+          example: "admin"
+        nickname:
+          type: string
+          description: 昵称
+          example: "管理员"
+        avatar:
+          type: string
+          description: 头像 URL
+          example: "https://cdn.example.com/avatar/u001.png"
+        tenantId:
+          type: string
+          description: 所属租户 ID
+          example: "t001"
+        tenantName:
+          type: string
+          description: 租户名称
+          example: "默认租户"
+        roles:
+          type: array
+          description: 角色 code 列表
+          items:
+            type: string
+          example: ["ROLE_ADMIN"]
+        permissions:
+          type: array
+          description: 权限标识集合（精确到菜单/按钮/API）
+          items:
+            type: string
+          example: ["system:user:list", "system:user:add", "system:role:edit"]
+
+    # ---------- 统一响应包装 ----------
+
+    ResultCaptchaVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CaptchaVO'
+
+    ResultLoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoginResponse'
+
+    ResultTokenRefreshResponse:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TokenRefreshResponse'
+
+    ResultCurrentUserResponse:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CurrentUserResponse'
+
+    ResultVoid:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              nullable: true
+              example: null
+
+    ResultError:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              nullable: true
+              example: null
+
+    Result:
+      type: object
+      description: 统一响应体（来自 opencloud-common 模块）
+      properties:
+        code:
+          type: integer
+          description: 业务状态码，0 = 成功，非 0 = 失败
+          example: 0
+        message:
+          type: string
+          description: 响应描述
+          example: "success"
+        data:
+          description: 响应数据（成功时有值，失败时为 null）
+          nullable: true
+
+    # ---------- JWT Payload（文档用，非接口参数） ----------
+
+    JwtPayload:
+      type: object
+      description: |
+        AccessToken Claims 结构（文档说明，非接口参数）。
+        算法：HS256，密钥通过配置中心注入（≥256 bit Base64）。
+      properties:
+        jti:
+          type: string
+          format: uuid
+          description: Token 唯一 ID，用于黑名单校验
+        sub:
+          type: string
+          description: 用户 ID（userId）
+        tenantId:
+          type: string
+          description: 租户 ID
+        username:
+          type: string
+          description: 登录账号
+        roles:
+          type: array
+          items:
+            type: string
+          description: 角色 code 列表
+        tokenVersion:
+          type: integer
+          description: Token 版本号，强制下线时 Redis 版本 +1，旧 Token 自动失效
+        iat:
+          type: integer
+          format: int64
+          description: 签发时间（Unix 时间戳，秒）
+        exp:
+          type: integer
+          format: int64
+          description: 过期时间（Unix 时间戳，秒）
+
+  # ----------------------------------------------------------
+  # Responses（公共）
+  # ----------------------------------------------------------
+  responses:
+
+    Unauthorized:
+      description: |
+        未授权 —— Token 缺失、无效、已过期或已被注销。
+        客户端应携带 RefreshToken 请求 `/auth/token/refresh`。
+        若 RefreshToken 也已过期，则引导用户重新登录。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultError'
+          examples:
+            noToken:
+              summary: Token 不存在
+              value:
+                code: 1
+                message: "未授权，请登录"
+                data: null
+            tokenExpired:
+              summary: Token 已过期
+              value:
+                code: 1
+                message: "Token 已过期"
+                data: null
+            tokenRevoked:
+              summary: Token 已注销（黑名单）
+              value:
+                code: 1
+                message: "Token 已注销，请重新登录"
+                data: null
+            tokenVersionMismatch:
+              summary: Token 版本失效（强制下线）
+              value:
+                code: 1
+                message: "登录状态已失效，请重新登录"
+                data: null
+
+    Forbidden:
+      description: 权限不足，无法执行此操作。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultError'
+          example:
+            code: 1
+            message: "无权限，请联系管理员"
+            data: null

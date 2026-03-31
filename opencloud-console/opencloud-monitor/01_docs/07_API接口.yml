@@ -1,0 +1,1770 @@
+# ============================================================
+# opencloud-monitor 模块 API 接口定义
+# 对应文档：02_业务设计.md, 03_应用设计.md, 04_数据设计.md, 05_技术设计.md
+# 格式：OpenAPI 3.0.3
+# 生成时间：2026-03-31
+# ============================================================
+
+openapi: 3.0.3
+info:
+  title: OpenCloud Monitor API
+  description: |
+    OpenCloud 监控告警模块 API 接口定义
+    
+    包含功能：
+    - Prometheus 指标查询
+    - Grafana 面板集成
+    - 告警规则管理
+    - 告警记录管理
+    - 告警静默管理
+    - 通知渠道管理
+    - 通知日志查询
+    - WebSocket 实时告警推送
+    - AlertManager Webhook 接收
+  version: 1.0.0
+  contact:
+    name: OpenCloud Team
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+
+# ============================================================
+# 安全定义
+# ============================================================
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 通过 Authorization: Bearer {token} 传递 JWT Token
+
+  schemas:
+    # --------------------------------------------------------
+    # 通用响应结构
+    # --------------------------------------------------------
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 业务状态码
+        message:
+          type: string
+          description: 提示信息
+        data:
+          type: object
+          description: 响应数据
+        timestamp:
+          type: integer
+          description: 时间戳
+
+    PageResult:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+          description: 总记录数
+        size:
+          type: integer
+          description: 每页大小
+        current:
+          type: integer
+          description: 当前页码
+        pages:
+          type: integer
+          description: 总页数
+
+    # --------------------------------------------------------
+    # 指标查询相关
+    # --------------------------------------------------------
+    MetricsQueryDTO:
+      type: object
+      properties:
+        query:
+          type: string
+          description: PromQL 表达式
+          example: 'up'
+        time:
+          type: integer
+          description: 查询时间点（Unix 时间戳，可选）
+          example: 1711900000
+
+    MetricsRangeQueryDTO:
+      type: object
+      properties:
+        query:
+          type: string
+          description: PromQL 表达式
+          example: 'rate(node_cpu_seconds_total[5m])'
+        start:
+          type: integer
+          description: 开始时间（Unix 时间戳）
+          example: 1711890000
+        end:
+          type: integer
+          description: 结束时间（Unix 时间戳）
+          example: 1711900000
+        step:
+          type: string
+          description: 步长（如 60s）
+          example: '60'
+
+    PrometheusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+        data:
+          type: object
+          properties:
+            resultType:
+              type: string
+            result:
+              type: array
+              items:
+                type: object
+
+    ClusterOverviewVO:
+      type: object
+      properties:
+        cpuUsage:
+          type: number
+          format: float
+          description: CPU 使用率（0-1）
+          example: 0.45
+        memUsage:
+          type: number
+          format: float
+          description: 内存使用率（0-1）
+          example: 0.72
+        diskUsage:
+          type: number
+          format: float
+          description: 磁盘使用率（0-1）
+          example: 0.38
+        networkThroughput:
+          type: integer
+          description: 网络吞吐（bytes/s）
+        timestamp:
+          type: string
+          format: date-time
+
+    NodeMetricsVO:
+      type: object
+      properties:
+        instance:
+          type: string
+          description: 节点地址
+          example: '192.168.1.10:9100'
+        cpuUsage:
+          type: number
+          format: float
+          description: CPU 使用率
+          example: 0.32
+        memUsage:
+          type: number
+          format: float
+          description: 内存使用率
+          example: 0.68
+        diskUsage:
+          type: number
+          format: float
+          description: 磁盘使用率
+          example: 0.45
+        online:
+          type: boolean
+          description: 是否在线
+
+    # --------------------------------------------------------
+    # Grafana 相关
+    # --------------------------------------------------------
+    DashboardVO:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: 面板唯一标识
+        title:
+          type: string
+          description: 面板标题
+        url:
+          type: string
+          description: 面板 URL
+        tags:
+          type: array
+          items:
+            type: string
+        folderId:
+          type: integer
+          description: 所属文件夹 ID
+
+    DashboardEmbedVO:
+      type: object
+      properties:
+        embedUrl:
+          type: string
+          description: 嵌入 URL（iframe src）
+          example: 'http://grafana:3000/d/xxx?orgId=1&kiosk&theme=light&from=now-1h&to=now'
+
+    # --------------------------------------------------------
+    # 告警规则相关
+    # --------------------------------------------------------
+    AlertRuleCreateDTO:
+      type: object
+      required:
+        - ruleName
+        - promqlExpr
+        - severity
+        - duration
+      properties:
+        ruleName:
+          type: string
+          maxLength: 100
+          description: 规则名称
+          example: '节点内存告警'
+        description:
+          type: string
+          maxLength: 500
+          description: 规则描述
+          example: '内存使用率超过 80%'
+        promqlExpr:
+          type: string
+          description: PromQL 表达式
+          example: '1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes > 0.8'
+        severity:
+          type: string
+          enum: [INFO, WARNING, CRITICAL]
+          description: 严重级别
+          example: 'WARNING'
+        duration:
+          type: string
+          description: 持续时间（如 5m）
+          example: '5m'
+        notifyChannelIds:
+          type: array
+          items:
+            type: integer
+          description: 通知渠道 ID 列表
+          example: [1, 2]
+        notifyOnResolve:
+          type: boolean
+          default: false
+          description: 告警恢复时是否发送恢复通知
+
+    AlertRuleUpdateDTO:
+      allOf:
+        - $ref: '#/components/schemas/AlertRuleCreateDTO'
+
+    AlertRuleStatusDTO:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ENABLED, DISABLED]
+          description: 规则状态
+
+    AlertRuleQueryDTO:
+      type: object
+      properties:
+        ruleName:
+          type: string
+          description: 规则名称（模糊查询）
+        severity:
+          type: string
+          enum: [INFO, WARNING, CRITICAL]
+        status:
+          type: string
+          enum: [ENABLED, DISABLED]
+        page:
+          type: integer
+          default: 1
+        size:
+          type: integer
+          default: 10
+
+    AlertRuleVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: string
+        ruleName:
+          type: string
+        description:
+          type: string
+        promqlExpr:
+          type: string
+        severity:
+          type: string
+        duration:
+          type: string
+        notifyChannelIds:
+          type: array
+          items:
+            type: integer
+        notifyOnResolve:
+          type: boolean
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------
+    # 告警记录相关
+    # --------------------------------------------------------
+    AlertRecordQueryDTO:
+      type: object
+      properties:
+        alertName:
+          type: string
+          description: 告警名称（模糊查询）
+        severity:
+          type: string
+          enum: [INFO, WARNING, CRITICAL]
+        status:
+          type: string
+          enum: [FIRING, ACKNOWLEDGED, RESOLVED]
+        instance:
+          type: string
+        ruleId:
+          type: integer
+        beginTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        page:
+          type: integer
+          default: 1
+        size:
+          type: integer
+          default: 10
+
+    AlertAckDTO:
+      type: object
+      properties:
+        ackNote:
+          type: string
+          maxLength: 500
+          description: 确认备注
+          example: '已通知相关同学处理，预计 30 分钟内恢复'
+
+    AlertRecordVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        ruleId:
+          type: integer
+        ruleName:
+          type: string
+        alertName:
+          type: string
+        severity:
+          type: string
+        instance:
+          type: string
+        summary:
+          type: string
+        status:
+          type: string
+        firedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        ackBy:
+          type: string
+        ackAt:
+          type: string
+          format: date-time
+        ackNote:
+          type: string
+        notified:
+          type: boolean
+
+    AlertRecordDetailVO:
+      allOf:
+        - $ref: '#/components/schemas/AlertRecordVO'
+        - type: object
+          properties:
+            labels:
+              type: object
+              description: AlertManager labels JSON
+            annotations:
+              type: object
+              description: AlertManager annotations JSON
+            notifyLogs:
+              type: array
+              items:
+                $ref: '#/components/schemas/NotifyLogVO'
+
+    AlertStatsVO:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 总触发次数
+        firing:
+          type: integer
+          description: 当前未解决数
+        acknowledged:
+          type: integer
+          description: 已确认数
+        resolved:
+          type: integer
+          description: 已解决数
+        criticalCount:
+          type: integer
+          description: CRITICAL 级别数
+        warningCount:
+          type: integer
+          description: WARNING 级别数
+        infoCount:
+          type: integer
+          description: INFO 级别数
+        avgDurationSeconds:
+          type: number
+          format: float
+          description: 平均持续时间（秒）
+
+    AlertStatsQueryDTO:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: [today, 7d, 30d]
+          default: today
+          description: 统计周期
+
+    # --------------------------------------------------------
+    # 告警静默相关
+    # --------------------------------------------------------
+    AlertSilenceCreateDTO:
+      type: object
+      required:
+        - silenceName
+        - startAt
+        - endAt
+        - matchLabels
+      properties:
+        silenceName:
+          type: string
+          maxLength: 100
+          description: 静默规则名称
+        description:
+          type: string
+          maxLength: 300
+        matchLabels:
+          type: array
+          description: 标签匹配规则（AND 语义）
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              value:
+                type: string
+          example:
+            - key: alertname
+              value: NodeDown
+            - key: severity
+              value: CRITICAL
+        startAt:
+          type: string
+          format: date-time
+          description: 静默开始时间
+        endAt:
+          type: string
+          format: date-time
+          description: 静默结束时间
+
+    AlertSilenceQueryDTO:
+      type: object
+      properties:
+        silenceName:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED]
+        beginTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        page:
+          type: integer
+          default: 1
+        size:
+          type: integer
+          default: 10
+
+    AlertSilenceVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: string
+        silenceName:
+          type: string
+        description:
+          type: string
+        matchLabels:
+          type: array
+          items:
+            type: object
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------
+    # 通知渠道相关
+    # --------------------------------------------------------
+    NotifyChannelCreateDTO:
+      type: object
+      required:
+        - channelName
+        - channelType
+        - config
+      properties:
+        channelName:
+          type: string
+          maxLength: 100
+          description: 渠道名称
+        channelType:
+          type: string
+          enum: [EMAIL, DINGTALK, WECHAT_WORK, WEBHOOK]
+          description: 渠道类型
+        config:
+          type: object
+          description: 渠道配置（各类型字段不同）
+          oneOf:
+            - $ref: '#/components/schemas/EmailConfig'
+            - $ref: '#/components/schemas/DingTalkConfig'
+            - $ref: '#/components/schemas/WeChatWorkConfig'
+            - $ref: '#/components/schemas/WebhookConfig'
+        description:
+          type: string
+          maxLength: 300
+
+    EmailConfig:
+      type: object
+      properties:
+        smtpHost:
+          type: string
+          example: 'smtp.163.com'
+        smtpPort:
+          type: integer
+          example: 465
+        smtpUser:
+          type: string
+          example: 'alert@163.com'
+        smtpPass:
+          type: string
+          description: AES 加密存储
+        senderAddr:
+          type: string
+          example: 'alert@163.com'
+        receiverAddrs:
+          type: string
+          description: 收件人地址，逗号分隔
+          example: 'ops@company.com,admin@company.com'
+        sslEnabled:
+          type: boolean
+          default: true
+
+    DingTalkConfig:
+      type: object
+      properties:
+        webhookUrl:
+          type: string
+          example: 'https://oapi.dingtalk.com/robot/send?access_token=xxx'
+        secret:
+          type: string
+          description: 加签密钥，AES 加密存储
+        atMobiles:
+          type: array
+          items:
+            type: string
+        isAtAll:
+          type: boolean
+          default: false
+
+    WeChatWorkConfig:
+      type: object
+      properties:
+        webhookUrl:
+          type: string
+          example: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx'
+        mentionedList:
+          type: array
+          items:
+            type: string
+
+    WebhookConfig:
+      type: object
+      properties:
+        url:
+          type: string
+          example: 'https://hooks.example.com/alert'
+        method:
+          type: string
+          enum: [GET, POST]
+          default: POST
+        headers:
+          type: object
+          description: 请求头 JSON
+        bodyTemplate:
+          type: string
+          description: Freemarker 模板
+          example: '{"text": "[${severity}] ${alertName}: ${summary}"}'
+
+    NotifyChannelUpdateDTO:
+      allOf:
+        - $ref: '#/components/schemas/NotifyChannelCreateDTO'
+
+    NotifyChannelQueryDTO:
+      type: object
+      properties:
+        channelName:
+          type: string
+        channelType:
+          type: string
+          enum: [EMAIL, DINGTALK, WECHAT_WORK, WEBHOOK]
+        page:
+          type: integer
+          default: 1
+        size:
+          type: integer
+          default: 10
+
+    NotifyChannelVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: string
+        channelName:
+          type: string
+        channelType:
+          type: string
+        config:
+          type: object
+          description: 敏感字段脱敏
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------
+    # 通知日志相关
+    # --------------------------------------------------------
+    NotifyLogQueryDTO:
+      type: object
+      properties:
+        alertRecordId:
+          type: integer
+        channelId:
+          type: integer
+        status:
+          type: string
+          enum: [SUCCESS, FAILED]
+        beginTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        page:
+          type: integer
+          default: 1
+        size:
+          type: integer
+          default: 10
+
+    NotifyLogVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        alertRecordId:
+          type: integer
+        channelId:
+          type: integer
+        channelName:
+          type: string
+        channelType:
+          type: string
+        isTest:
+          type: boolean
+        status:
+          type: string
+        errorMsg:
+          type: string
+        retryCount:
+          type: integer
+        sentAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------
+    # AlertManager Webhook
+    # --------------------------------------------------------
+    AlertManagerPayload:
+      type: object
+      properties:
+        version:
+          type: string
+          example: '4'
+        groupKey:
+          type: string
+        status:
+          type: string
+          enum: [firing, resolved]
+        receiver:
+          type: string
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertManagerAlert'
+
+    AlertManagerAlert:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [firing, resolved]
+        labels:
+          type: object
+          properties:
+            alertname:
+              type: string
+            severity:
+              type: string
+            instance:
+              type: string
+            job:
+              type: string
+        annotations:
+          type: object
+          properties:
+            summary:
+              type: string
+            description:
+              type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------
+    # WebSocket 消息
+    # --------------------------------------------------------
+    WebSocketMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [CONNECTED, PING, ALERT_FIRING, ALERT_RESOLVED]
+        message:
+          type: string
+        recordId:
+          type: integer
+        alertName:
+          type: string
+        severity:
+          type: string
+        instance:
+          type: string
+        summary:
+          type: string
+        firedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+
+# ============================================================
+# 路径定义
+# ============================================================
+paths:
+  # --------------------------------------------------------
+  # 指标查询接口
+  # --------------------------------------------------------
+  /api/monitor/metrics/query:
+    get:
+      summary: Prometheus 即时查询
+      description: 代理转发 PromQL 即时查询至 Prometheus
+      tags:
+        - 指标查询
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: PromQL 表达式
+        - name: time
+          in: query
+          schema:
+            type: integer
+          description: 查询时间点（Unix 时间戳，可选）
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PrometheusResponse'
+        '400':
+          description: PromQL 语法错误
+        '503':
+          description: Prometheus 不可达或查询超时
+
+  /api/monitor/metrics/query_range:
+    get:
+      summary: Prometheus 范围查询
+      description: 代理转发 PromQL 范围查询至 Prometheus
+      tags:
+        - 指标查询
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: step
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PrometheusResponse'
+        '400':
+          description: 时间范围超过 30 天或 PromQL 语法错误
+        '503':
+          description: Prometheus 不可达或查询超时
+
+  /api/monitor/metrics/overview:
+    get:
+      summary: 集群总览指标
+      description: 获取聚合后的集群资源使用概览
+      tags:
+        - 指标查询
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/ClusterOverviewVO'
+
+  /api/monitor/metrics/nodes:
+    get:
+      summary: 节点指标列表
+      description: 获取各节点的资源使用状态
+      tags:
+        - 指标查询
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NodeMetricsVO'
+
+  /api/monitor/metrics/labels:
+    get:
+      summary: 指标名称列表
+      description: 获取可用指标名称列表，用于 PromQL 编辑器自动补全
+      tags:
+        - 指标查询
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: prefix
+          in: query
+          schema:
+            type: string
+          description: 指标名称前缀（模糊匹配）
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+
+  # --------------------------------------------------------
+  # Grafana 集成接口
+  # --------------------------------------------------------
+  /api/monitor/grafana/dashboards:
+    get:
+      summary: Grafana 面板列表
+      description: 从 Grafana API 获取面板列表
+      tags:
+        - Grafana 集成
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DashboardVO'
+        '503':
+          description: Grafana 不可达或认证失败
+
+  /api/monitor/grafana/dashboards/{uid}/embed:
+    get:
+      summary: 获取面板嵌入 URL
+      description: 生成带参数的 iframe 嵌入 URL
+      tags:
+        - Grafana 集成
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/DashboardEmbedVO'
+        '404':
+          description: 面板不存在
+        '503':
+          description: Grafana 不可达
+
+  # --------------------------------------------------------
+  # 告警规则接口
+  # --------------------------------------------------------
+  /api/monitor/alerts/rules:
+    get:
+      summary: 告警规则列表
+      description: 分页查询告警规则
+      tags:
+        - 告警规则
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ruleName
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [INFO, WARNING, CRITICAL]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ENABLED, DISABLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+    post:
+      summary: 新增告警规则
+      description: 创建新的告警规则，会校验 PromQL 语法
+      tags:
+        - 告警规则
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleCreateDTO'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AlertRuleVO'
+        '400':
+          description: 规则名重复或 PromQL 无效
+
+  /api/monitor/alerts/rules/{id}:
+    get:
+      summary: 告警规则详情
+      tags:
+        - 告警规则
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AlertRuleVO'
+        '404':
+          description: 规则不存在
+
+    put:
+      summary: 编辑告警规则
+      tags:
+        - 告警规则
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleUpdateDTO'
+      responses:
+        '200':
+          description: 更新成功
+        '400':
+          description: 规则名重复或 PromQL 无效
+        '404':
+          description: 规则不存在
+
+    delete:
+      summary: 删除告警规则
+      description: 逻辑删除
+      tags:
+        - 告警规则
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+        '404':
+          description: 规则不存在
+
+  /api/monitor/alerts/rules/{id}/status:
+    put:
+      summary: 启用/禁用告警规则
+      tags:
+        - 告警规则
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleStatusDTO'
+      responses:
+        '200':
+          description: 操作成功
+        '404':
+          description: 规则不存在
+
+  # --------------------------------------------------------
+  # 告警记录接口
+  # --------------------------------------------------------
+  /api/monitor/alerts/records:
+    get:
+      summary: 告警记录列表
+      description: 分页查询告警记录，支持多种筛选条件
+      tags:
+        - 告警记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: alertName
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [INFO, WARNING, CRITICAL]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [FIRING, ACKNOWLEDGED, RESOLVED]
+        - name: instance
+          in: query
+          schema:
+            type: string
+        - name: ruleId
+          in: query
+          schema:
+            type: integer
+        - name: beginTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/monitor/alerts/records/{id}:
+    get:
+      summary: 告警记录详情
+      tags:
+        - 告警记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AlertRecordDetailVO'
+        '404':
+          description: 记录不存在
+
+  /api/monitor/alerts/records/{id}/ack:
+    put:
+      summary: 确认告警
+      description: 标记告警为已处理
+      tags:
+        - 告警记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertAckDTO'
+      responses:
+        '200':
+          description: 确认成功
+        '400':
+          description: 重复确认或状态非法
+        '404':
+          description: 记录不存在
+
+  /api/monitor/alerts/stats:
+    get:
+      summary: 告警统计
+      description: 按周期统计告警数据
+      tags:
+        - 告警记录
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, 7d, 30d]
+            default: today
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/AlertStatsVO'
+
+  # --------------------------------------------------------
+  # AlertManager Webhook 接口（白名单，无需 Token）
+  # --------------------------------------------------------
+  /api/monitor/alerts/webhook:
+    post:
+      summary: 接收 AlertManager Webhook
+      description: |
+        接收 AlertManager 推送的告警事件。
+        **注意：此接口在白名单中，无需 Token 认证。**
+        建议配置 webhookSecret 进行签名验证。
+      tags:
+        - AlertManager Webhook
+      parameters:
+        - name: X-Prometheus-Token
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Webhook 签名密钥（可选）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertManagerPayload'
+      responses:
+        '200':
+          description: 接收成功
+        '400':
+          description: Payload 格式非法
+        '401':
+          description: 签名验证失败
+
+  # --------------------------------------------------------
+  # 告警静默接口
+  # --------------------------------------------------------
+  /api/monitor/alerts/silences:
+    get:
+      summary: 告警静默列表
+      tags:
+        - 告警静默
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: silenceName
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, EXPIRED]
+        - name: beginTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+    post:
+      summary: 新增告警静默
+      tags:
+        - 告警静默
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertSilenceCreateDTO'
+      responses:
+        '200':
+          description: 创建成功
+        '400':
+          description: 参数校验失败
+
+  /api/monitor/alerts/silences/{id}/stop:
+    put:
+      summary: 停止告警静默
+      description: 提前终止静默规则
+      tags:
+        - 告警静默
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 操作成功
+        '404':
+          description: 静默规则不存在
+
+  /api/monitor/alerts/silences/{id}:
+    delete:
+      summary: 删除告警静默
+      description: 仅允许删除已过期或已停止的静默规则
+      tags:
+        - 告警静默
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+        '400':
+          description: 静默规则未过期，不能删除
+        '404':
+          description: 静默规则不存在
+
+  # --------------------------------------------------------
+  # 通知渠道接口
+  # --------------------------------------------------------
+  /api/monitor/notify/channels:
+    get:
+      summary: 通知渠道列表
+      tags:
+        - 通知渠道
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: channelName
+          in: query
+          schema:
+            type: string
+        - name: channelType
+          in: query
+          schema:
+            type: string
+            enum: [EMAIL, DINGTALK, WECHAT_WORK, WEBHOOK]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+    post:
+      summary: 新增通知渠道
+      tags:
+        - 通知渠道
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyChannelCreateDTO'
+      responses:
+        '200':
+          description: 创建成功
+
+  /api/monitor/notify/channels/{id}:
+    get:
+      summary: 通知渠道详情
+      description: 敏感字段脱敏返回
+      tags:
+        - 通知渠道
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/NotifyChannelVO'
+        '404':
+          description: 渠道不存在
+
+    put:
+      summary: 编辑通知渠道
+      tags:
+        - 通知渠道
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyChannelUpdateDTO'
+      responses:
+        '200':
+          description: 更新成功
+        '404':
+          description: 渠道不存在
+
+    delete:
+      summary: 删除通知渠道
+      description: 被告警规则引用的渠道不可删除
+      tags:
+        - 通知渠道
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+        '400':
+          description: 渠道被引用，无法删除
+        '404':
+          description: 渠道不存在
+
+  /api/monitor/notify/channels/{id}/test:
+    post:
+      summary: 测试通知渠道
+      description: 发送测试消息验证渠道配置
+      tags:
+        - 通知渠道
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 测试完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  # --------------------------------------------------------
+  # 通知日志接口
+  # --------------------------------------------------------
+  /api/monitor/notify/logs:
+    get:
+      summary: 通知发送日志列表
+      tags:
+        - 通知日志
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: alertRecordId
+          in: query
+          schema:
+            type: integer
+        - name: channelId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [SUCCESS, FAILED]
+        - name: beginTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  # --------------------------------------------------------
+  # WebSocket 端点
+  # --------------------------------------------------------
+  /ws/alerts:
+    get:
+      summary: WebSocket 实时告警推送
+      description: |
+        WebSocket 端点，用于实时接收告警事件。
+        
+        **连接方式：**
+        ```
+        ws://{host}/ws/alerts?token={accessToken}
+        ```
+        
+        **消息类型：**
+        - `CONNECTED`: 连接成功
+        - `PING`: 服务端心跳（每 30s）
+        - `ALERT_FIRING`: 新告警触发
+        - `ALERT_RESOLVED`: 告警解除
+        
+        **注意：**
+        - 握手时校验 Token，无效则拒绝连接
+        - 同一用户多次连接时，新连接替换旧连接
+      tags:
+        - WebSocket
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: JWT AccessToken
+      responses:
+        '101':
+          description: WebSocket 连接成功
+        '401':
+          description: Token 无效
+
+# ============================================================
+# 权限标识汇总
+# ============================================================
+# 以下权限需在 opencloud-system 模块的 sys_menu 表中初始化：
+#
+# monitor:metrics:query          - 查询监控指标（含 Grafana）
+# monitor:alert:rule:list        - 查看告警规则 / 告警记录 / 统计 / 静默列表
+# monitor:alert:rule:add         - 新增告警规则 / 静默
+# monitor:alert:rule:edit        - 编辑告警规则 / 启用禁用 / 停止静默
+# monitor:alert:rule:delete      - 删除告警规则 / 静默
+# monitor:alert:record:ack       - 确认告警记录
+# monitor:notify:channel:list    - 查看通知渠道 / 通知日志
+# monitor:notify:channel:add     - 新增通知渠道
+# monitor:notify:channel:edit    - 编辑通知渠道 / 发送测试消息
+# monitor:notify:channel:delete  - 删除通知渠道
+# ============================================================

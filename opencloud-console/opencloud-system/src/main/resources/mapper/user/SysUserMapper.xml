@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qoobot.opencloud.system.user.mapper.SysUserMapper">
+
+    <!-- 分页查询用户（关联部门名称） -->
+    <select id="selectPageVO" resultType="com.qoobot.opencloud.system.user.domain.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.email, u.phone, u.avatar,
+               u.dept_id, d.dept_name, u.status, u.is_builtin, u.created_at
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id AND d.deleted = 0
+        WHERE u.deleted = 0
+        <if test="q.username != null and q.username != ''">
+            AND u.username LIKE CONCAT('%', #{q.username}, '%')
+        </if>
+        <if test="q.nickname != null and q.nickname != ''">
+            AND u.nickname LIKE CONCAT('%', #{q.nickname}, '%')
+        </if>
+        <if test="q.status != null and q.status != ''">
+            AND u.status = #{q.status}
+        </if>
+        <if test="q.deptId != null">
+            AND u.dept_id = #{q.deptId}
+        </if>
+        ORDER BY u.created_at DESC
+    </select>
+
+    <!-- 查询用户下拉选项列表 -->
+    <select id="selectOptions" resultType="com.qoobot.opencloud.system.user.domain.vo.UserOptionVO">
+        SELECT id, username, nickname
+        FROM sys_user
+        WHERE deleted = 0
+          AND status = 'ACTIVE'
+          AND tenant_id = #{tenantId}
+        ORDER BY nickname
+    </select>
+
+    <!-- 查询用户详情（含部门名称） -->
+    <select id="selectDetailById" resultType="com.qoobot.opencloud.system.user.domain.vo.UserVO">
+        SELECT u.id, u.username, u.nickname, u.email, u.phone, u.avatar,
+               u.dept_id, d.dept_name, u.status, u.is_builtin, u.created_at
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id AND d.deleted = 0
+        WHERE u.id = #{id} AND u.deleted = 0
+    </select>
+
+</mapper>

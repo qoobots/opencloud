@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "sessions": {
+    "4fdc6a37d8f147ce93253bfa4f46c848": [
+      {
+        "expertId": "SoftwareArchitect",
+        "name": "Yara",
+        "profession": "软件架构师",
+        "avatarUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/avatars/02-Engineering/SoftwareArchitect/SoftwareArchitect.png",
+        "promptUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/experts/02-Engineering/SoftwareArchitect/SoftwareArchitect_zh.md",
+        "usedAt": 1774916307764,
+        "industryId": "all"
+      }
+    ],
+    "d3cb2a74d2e0408e9ee2f672f4c8b8a6": [
+      {
+        "expertId": "SoftwareArchitect",
+        "name": "Yara",
+        "profession": "软件架构师",
+        "avatarUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/avatars/02-Engineering/SoftwareArchitect/SoftwareArchitect.png",
+        "promptUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/experts/02-Engineering/SoftwareArchitect/SoftwareArchitect_zh.md",
+        "usedAt": 1774916307764,
+        "industryId": "all"
+      }
+    ]
+  },
+  "lastUpdated": 1774923874661
+}

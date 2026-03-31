@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qoobot.opencloud.auth.mapper.PermissionMapper">
+
+    <!--
+        查询用户所有权限标识（permission 字段，如 system:user:list）
+        路径：sys_user -> sys_user_role -> sys_role -> sys_role_menu -> sys_menu
+        单体架构直接查 system 模块共享表
+    -->
+    <select id="selectPermissionsByUserId" resultType="java.lang.String">
+        SELECT DISTINCT m.permission
+        FROM sys_menu m
+                 INNER JOIN sys_role_menu rm ON m.id = rm.menu_id
+                 INNER JOIN sys_role r ON rm.role_id = r.id
+                 INNER JOIN sys_user_role ur ON r.id = ur.role_id
+        WHERE ur.user_id = #{userId}
+          AND r.deleted = 0
+          AND r.status = 0
+          AND m.deleted = 0
+          AND m.permission IS NOT NULL
+          AND m.permission != ''
+    </select>
+
+    <!--
+        查询用户角色 code 列表（如 ROLE_ADMIN）
+    -->
+    <select id="selectRoleCodesByUserId" resultType="java.lang.String">
+        SELECT r.role_code
+        FROM sys_role r
+                 INNER JOIN sys_user_role ur ON r.id = ur.role_id
+        WHERE ur.user_id = #{userId}
+          AND r.deleted = 0
+          AND r.status = 0
+    </select>
+
+</mapper>

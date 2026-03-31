@@ -1,0 +1,908 @@
+openapi: 3.0.3
+info:
+  title: opencloud-system API
+  description: 系统管理模块 — 用户/角色/菜单/部门/租户/字典/日志管理
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+
+tags:
+  - name: 用户管理
+  - name: 角色管理
+  - name: 菜单管理
+  - name: 部门管理
+  - name: 租户管理
+  - name: 字典管理
+  - name: 个人中心
+  - name: 日志管理
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Result:
+      type: object
+      properties:
+        code:  { type: integer, example: 0 }
+        msg:   { type: string,  example: ok }
+        data:  {}
+
+    PageResult:
+      type: object
+      properties:
+        total:   { type: integer, example: 100 }
+        pages:   { type: integer, example: 10 }
+        current: { type: integer, example: 1 }
+        size:    { type: integer, example: 10 }
+        records: { type: array, items: {} }
+
+    # ---- 用户 ----
+    UserVO:
+      type: object
+      properties:
+        id:        { type: string }
+        username:  { type: string }
+        nickname:  { type: string }
+        email:     { type: string }
+        phone:     { type: string }
+        avatar:    { type: string }
+        deptId:    { type: integer }
+        deptName:  { type: string }
+        status:    { type: string, enum: [ACTIVE, DISABLED] }
+        createdAt: { type: string, format: date-time }
+
+    UserCreateDTO:
+      type: object
+      required: [username, nickname]
+      properties:
+        username:  { type: string, minLength: 4, maxLength: 32 }
+        nickname:  { type: string }
+        email:     { type: string, format: email }
+        phone:     { type: string }
+        password:  { type: string, format: password }
+        deptId:    { type: integer }
+        roleIds:   { type: array, items: { type: integer } }
+        status:    { type: string, enum: [ACTIVE, DISABLED], default: ACTIVE }
+
+    UserUpdateDTO:
+      type: object
+      properties:
+        nickname:  { type: string }
+        email:     { type: string, format: email }
+        phone:     { type: string }
+        avatar:    { type: string }
+        deptId:    { type: integer }
+
+    UserStatusDTO:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+
+    UserPasswordDTO:
+      type: object
+      properties:
+        newPassword: { type: string, format: password, description: "不填则使用系统默认密码 Welcome@2026" }
+
+    UserRoleDTO:
+      type: object
+      required: [roleIds]
+      properties:
+        roleIds: { type: array, items: { type: integer } }
+
+    # ---- 角色 ----
+    RoleVO:
+      type: object
+      properties:
+        id:          { type: integer }
+        roleName:    { type: string }
+        roleCode:    { type: string }
+        description: { type: string }
+        isBuiltin:   { type: boolean }
+        status:      { type: string, enum: [ACTIVE, DISABLED] }
+        sort:        { type: integer }
+
+    RoleCreateDTO:
+      type: object
+      required: [roleName, roleCode]
+      properties:
+        roleName:    { type: string }
+        roleCode:    { type: string, pattern: '^[A-Z][A-Z0-9_]*$' }
+        description: { type: string }
+        sort:        { type: integer, default: 0 }
+
+    RoleMenuDTO:
+      type: object
+      required: [menuIds]
+      properties:
+        menuIds: { type: array, items: { type: integer } }
+
+    # ---- 菜单 ----
+    MenuTreeVO:
+      type: object
+      properties:
+        id:         { type: integer }
+        parentId:   { type: integer }
+        menuName:   { type: string }
+        menuType:   { type: integer, enum: [0, 1, 2], description: "0=目录 1=菜单 2=按钮" }
+        path:       { type: string }
+        component:  { type: string }
+        icon:       { type: string }
+        permission: { type: string }
+        visible:    { type: boolean }
+        sort:       { type: integer }
+        children:   { type: array, items: { $ref: '#/components/schemas/MenuTreeVO' } }
+
+    MenuCreateDTO:
+      type: object
+      required: [menuName, menuType]
+      properties:
+        parentId:   { type: integer, default: 0 }
+        menuName:   { type: string }
+        menuType:   { type: integer, enum: [0, 1, 2] }
+        path:       { type: string }
+        component:  { type: string }
+        icon:       { type: string }
+        permission: { type: string }
+        visible:    { type: boolean, default: true }
+        sort:       { type: integer, default: 0 }
+        remark:     { type: string }
+
+    # ---- 部门 ----
+    DeptTreeVO:
+      type: object
+      properties:
+        id:       { type: integer }
+        parentId: { type: integer }
+        deptName: { type: string }
+        leader:   { type: string }
+        phone:    { type: string }
+        sort:     { type: integer }
+        status:   { type: string }
+        children: { type: array, items: { $ref: '#/components/schemas/DeptTreeVO' } }
+
+    DeptCreateDTO:
+      type: object
+      required: [deptName]
+      properties:
+        parentId: { type: integer, default: 0 }
+        deptName: { type: string }
+        leader:   { type: string }
+        phone:    { type: string }
+        email:    { type: string }
+        sort:     { type: integer, default: 0 }
+
+    # ---- 租户 ----
+    TenantVO:
+      type: object
+      properties:
+        id:           { type: string }
+        tenantCode:   { type: string }
+        tenantName:   { type: string }
+        contactName:  { type: string }
+        contactEmail: { type: string }
+        status:       { type: string, enum: [ACTIVE, DISABLED] }
+        isDefault:    { type: boolean }
+        expireTime:   { type: string, format: date-time }
+        userCount:    { type: integer }
+        createdAt:    { type: string, format: date-time }
+
+    TenantCreateDTO:
+      type: object
+      required: [tenantCode, tenantName]
+      properties:
+        tenantCode:   { type: string }
+        tenantName:   { type: string }
+        contactName:  { type: string }
+        contactEmail: { type: string, format: email }
+        expireTime:   { type: string, format: date-time }
+        remark:       { type: string }
+
+    # ---- 字典 ----
+    DictTypeVO:
+      type: object
+      properties:
+        id:       { type: integer }
+        dictType: { type: string }
+        dictName: { type: string }
+        isSystem: { type: boolean }
+        status:   { type: string }
+        remark:   { type: string }
+
+    DictDataVO:
+      type: object
+      properties:
+        id:         { type: integer }
+        dictType:   { type: string }
+        dictLabel:  { type: string }
+        dictValue:  { type: string }
+        sort:       { type: integer }
+        isDefault:  { type: boolean }
+        status:     { type: string }
+
+    # ---- 个人中心 ----
+    ProfileVO:
+      type: object
+      properties:
+        id:        { type: string }
+        username:  { type: string }
+        nickname:  { type: string }
+        email:     { type: string }
+        phone:     { type: string }
+        avatar:    { type: string }
+        deptName:  { type: string }
+        roles:     { type: array, items: { type: string } }
+
+    ProfileUpdateDTO:
+      type: object
+      properties:
+        nickname: { type: string }
+        email:    { type: string, format: email }
+        phone:    { type: string }
+        avatar:   { type: string }
+
+    # ---- 日志 ----
+    OperationLogVO:
+      type: object
+      properties:
+        id:            { type: integer }
+        username:      { type: string }
+        moduleName:    { type: string }
+        operationType: { type: string }
+        method:        { type: string }
+        requestUrl:    { type: string }
+        status:        { type: string, enum: [SUCCESS, FAILED] }
+        costTime:      { type: integer }
+        operateIp:     { type: string }
+        operateTime:   { type: string, format: date-time }
+
+    LoginLogVO:
+      type: object
+      properties:
+        id:          { type: integer }
+        username:    { type: string }
+        loginIp:     { type: string }
+        userAgent:   { type: string }
+        loginTime:   { type: string, format: date-time }
+        logoutTime:  { type: string, format: date-time }
+        status:      { type: string, enum: [SUCCESS, FAILED, LOGOUT, FORCE_LOGOUT] }
+        failReason:  { type: string }
+
+  responses:
+    Unauthorized:
+      description: 未登录或 Token 无效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Result' }
+          example: { code: 401, msg: "未授权，请登录", data: null }
+    Forbidden:
+      description: 无权限
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Result' }
+          example: { code: 403, msg: "无权限，请联系管理员", data: null }
+
+# =============================================================
+# Paths
+# =============================================================
+paths:
+
+  # ---- 用户管理 ----
+  /api/system/users:
+    get:
+      tags: [用户管理]
+      summary: 用户分页列表
+      parameters:
+        - { name: current,   in: query, schema: { type: integer, default: 1 } }
+        - { name: size,      in: query, schema: { type: integer, default: 10 } }
+        - { name: username,  in: query, schema: { type: string } }
+        - { name: nickname,  in: query, schema: { type: string } }
+        - { name: status,    in: query, schema: { type: string, enum: [ACTIVE, DISABLED] } }
+        - { name: deptId,    in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+              example:
+                code: 0
+                msg: ok
+                data:
+                  total: 50
+                  pages: 5
+                  current: 1
+                  size: 10
+                  records:
+                    - { id: "uuid", username: "zhangsan", nickname: "张三", status: "ACTIVE" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+    post:
+      tags: [用户管理]
+      summary: 新增用户
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreateDTO' }
+            example:
+              username: zhangsan
+              nickname: 张三
+              password: Welcome@2026
+              roleIds: [2]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+              example: { code: 0, msg: ok, data: { id: "uuid", username: "zhangsan" } }
+        '400':
+          description: 参数错误（用户名已存在等）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+              example: { code: 400, msg: "SYS_1001", data: "用户名已被占用" }
+
+  /api/system/users/options:
+    get:
+      tags: [用户管理]
+      summary: 用户下拉选项（id + username + nickname）
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/users/{id}:
+    get:
+      tags: [用户管理]
+      summary: 用户详情
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+        '404': { description: 用户不存在 }
+    put:
+      tags: [用户管理]
+      summary: 编辑用户基本信息
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserUpdateDTO' }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [用户管理]
+      summary: 删除用户（逻辑删除）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 不允许删除内置账号或自身 }
+
+  /api/system/users/{id}/status:
+    put:
+      tags: [用户管理]
+      summary: 启用/禁用用户
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserStatusDTO' }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/users/{id}/password:
+    put:
+      tags: [用户管理]
+      summary: 重置用户密码
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserPasswordDTO' }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/users/{id}/roles:
+    put:
+      tags: [用户管理]
+      summary: 分配用户角色
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRoleDTO' }
+      responses:
+        '200': { description: 成功 }
+
+  # ---- 角色管理 ----
+  /api/system/roles:
+    get:
+      tags: [角色管理]
+      summary: 角色全量列表（下拉用）
+      responses:
+        '200': { description: 成功 }
+    post:
+      tags: [角色管理]
+      summary: 新增角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 角色编码已存在 }
+
+  /api/system/roles/page:
+    get:
+      tags: [角色管理]
+      summary: 角色分页列表
+      parameters:
+        - { name: current,  in: query, schema: { type: integer, default: 1 } }
+        - { name: size,     in: query, schema: { type: integer, default: 10 } }
+        - { name: roleName, in: query, schema: { type: string } }
+        - { name: status,   in: query, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/roles/{id}:
+    get:
+      tags: [角色管理]
+      summary: 角色详情
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+    put:
+      tags: [角色管理]
+      summary: 编辑角色
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [角色管理]
+      summary: 删除角色
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 内置角色不可删除 或 角色使用中 }
+
+  /api/system/roles/{id}/menus:
+    get:
+      tags: [角色管理]
+      summary: 获取角色已分配菜单 ID 列表
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              example: { code: 0, msg: ok, data: [1, 2, 5, 10] }
+    put:
+      tags: [角色管理]
+      summary: 分配角色菜单权限
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleMenuDTO' }
+      responses:
+        '200': { description: 成功 }
+
+  # ---- 菜单管理 ----
+  /api/system/menus:
+    get:
+      tags: [菜单管理]
+      summary: 全量菜单树（管理页，含按钮节点）
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              example:
+                code: 0
+                msg: ok
+                data:
+                  - { id: 1, parentId: 0, menuName: "系统管理", menuType: 0, children: [] }
+    post:
+      tags: [菜单管理]
+      summary: 新增菜单/目录/按钮
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MenuCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 参数错误（按钮不能有子节点，权限标识已存在等） }
+
+  /api/system/menus/current:
+    get:
+      tags: [菜单管理]
+      summary: 当前用户有权限的菜单树（不含按钮节点，供前端侧边栏渲染）
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/menus/{id}:
+    put:
+      tags: [菜单管理]
+      summary: 编辑菜单
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MenuCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [菜单管理]
+      summary: 删除菜单
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 有子节点或有角色绑定，不允许删除 }
+
+  # ---- 部门管理 ----
+  /api/system/depts:
+    get:
+      tags: [部门管理]
+      summary: 部门树（全量）
+      responses:
+        '200': { description: 成功 }
+    post:
+      tags: [部门管理]
+      summary: 新增部门
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeptCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 超过最大层级 5 层 }
+
+  /api/system/depts/options:
+    get:
+      tags: [部门管理]
+      summary: 部门下拉选项（id + deptName）
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/depts/{id}:
+    put:
+      tags: [部门管理]
+      summary: 编辑部门
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeptCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [部门管理]
+      summary: 删除部门
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 有子部门或有用户归属，不允许删除 }
+
+  # ---- 租户管理 ----
+  /api/system/tenants:
+    get:
+      tags: [租户管理]
+      summary: 租户分页列表（仅 SUPER_ADMIN）
+      parameters:
+        - { name: current,    in: query, schema: { type: integer, default: 1 } }
+        - { name: size,       in: query, schema: { type: integer, default: 10 } }
+        - { name: tenantName, in: query, schema: { type: string } }
+        - { name: status,     in: query, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+    post:
+      tags: [租户管理]
+      summary: 新增租户（仅 SUPER_ADMIN）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TenantCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 租户编码已存在 }
+
+  /api/system/tenants/options:
+    get:
+      tags: [租户管理]
+      summary: 租户下拉选项
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/tenants/{id}:
+    get:
+      tags: [租户管理]
+      summary: 租户详情
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+    put:
+      tags: [租户管理]
+      summary: 编辑租户
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TenantCreateDTO' }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [租户管理]
+      summary: 删除租户
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 默认租户不允许删除 或 租户下存在用户 }
+
+  /api/system/tenants/{id}/status:
+    put:
+      tags: [租户管理]
+      summary: 启用/禁用租户
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserStatusDTO' }
+      responses:
+        '200': { description: 成功，禁用时将强制该租户所有用户下线 }
+
+  # ---- 字典管理 ----
+  /api/system/dict/types:
+    get:
+      tags: [字典管理]
+      summary: 字典类型分页列表
+      parameters:
+        - { name: current,  in: query, schema: { type: integer, default: 1 } }
+        - { name: size,     in: query, schema: { type: integer, default: 10 } }
+        - { name: dictType, in: query, schema: { type: string } }
+        - { name: dictName, in: query, schema: { type: string } }
+      responses:
+        '200': { description: 成功 }
+    post:
+      tags: [字典管理]
+      summary: 新增字典类型
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dictType, dictName]
+              properties:
+                dictType: { type: string }
+                dictName: { type: string }
+                remark:   { type: string }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/dict/types/{id}:
+    put:
+      tags: [字典管理]
+      summary: 编辑字典类型
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { dictName: { type: string }, remark: { type: string } } }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [字典管理]
+      summary: 删除字典类型（连带删除字典数据）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 系统内置字典不允许删除 }
+
+  /api/system/dict/data:
+    get:
+      tags: [字典管理]
+      summary: 字典数据列表（按 type 筛选，供前端下拉）
+      parameters:
+        - { name: type, in: query, required: true, schema: { type: string }, description: "字典类型编码，如 sys_user_status" }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              example:
+                code: 0
+                msg: ok
+                data:
+                  - { dictLabel: "正常", dictValue: "ACTIVE" }
+                  - { dictLabel: "禁用", dictValue: "DISABLED" }
+    post:
+      tags: [字典管理]
+      summary: 新增字典数据
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dictType, dictLabel, dictValue]
+              properties:
+                dictType:   { type: string }
+                dictLabel:  { type: string }
+                dictValue:  { type: string }
+                sort:       { type: integer }
+                isDefault:  { type: boolean }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/dict/data/{id}:
+    put:
+      tags: [字典管理]
+      summary: 编辑字典数据
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { description: 成功 }
+    delete:
+      tags: [字典管理]
+      summary: 删除字典数据
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+
+  # ---- 个人中心 ----
+  /api/system/profile:
+    get:
+      tags: [个人中心]
+      summary: 获取个人信息
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+              example:
+                code: 0
+                msg: ok
+                data:
+                  id: uuid
+                  username: zhangsan
+                  nickname: 张三
+                  roles: [ROLE_ADMIN]
+    put:
+      tags: [个人中心]
+      summary: 修改个人信息（昵称/邮箱/手机/头像）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdateDTO' }
+      responses:
+        '200': { description: 成功 }
+        '400': { description: 邮箱或手机号格式错误 }
+
+  # ---- 日志管理 ----
+  /api/system/logs/operation:
+    get:
+      tags: [日志管理]
+      summary: 操作日志分页查询
+      parameters:
+        - { name: current,       in: query, schema: { type: integer, default: 1 } }
+        - { name: size,          in: query, schema: { type: integer, default: 10, maximum: 500 } }
+        - { name: username,      in: query, schema: { type: string } }
+        - { name: moduleName,    in: query, schema: { type: string } }
+        - { name: status,        in: query, schema: { type: string, enum: [SUCCESS, FAILED] } }
+        - { name: startTime,     in: query, schema: { type: string, format: date-time } }
+        - { name: endTime,       in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/logs/operation/{id}:
+    get:
+      tags: [日志管理]
+      summary: 操作日志详情（含完整请求参数和响应结果）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/logs/operation/export:
+    get:
+      tags: [日志管理]
+      summary: 操作日志导出 Excel（最多 10000 条）
+      parameters:
+        - { name: username,   in: query, schema: { type: string } }
+        - { name: moduleName, in: query, schema: { type: string } }
+        - { name: status,     in: query, schema: { type: string } }
+        - { name: startTime,  in: query, schema: { type: string, format: date-time } }
+        - { name: endTime,    in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Excel 文件流
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+
+  /api/system/logs/login:
+    get:
+      tags: [日志管理]
+      summary: 登录日志分页查询
+      parameters:
+        - { name: current,   in: query, schema: { type: integer, default: 1 } }
+        - { name: size,      in: query, schema: { type: integer, default: 10, maximum: 500 } }
+        - { name: username,  in: query, schema: { type: string } }
+        - { name: loginIp,   in: query, schema: { type: string } }
+        - { name: status,    in: query, schema: { type: string, enum: [SUCCESS, FAILED, LOGOUT, FORCE_LOGOUT] } }
+        - { name: startTime, in: query, schema: { type: string, format: date-time } }
+        - { name: endTime,   in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: 成功 }
+
+  /api/system/logs/login/export:
+    get:
+      tags: [日志管理]
+      summary: 登录日志导出 Excel（最多 10000 条）
+      parameters:
+        - { name: username,  in: query, schema: { type: string } }
+        - { name: status,    in: query, schema: { type: string } }
+        - { name: startTime, in: query, schema: { type: string, format: date-time } }
+        - { name: endTime,   in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Excel 文件流
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }

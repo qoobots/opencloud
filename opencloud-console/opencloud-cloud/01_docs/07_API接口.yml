@@ -1,0 +1,2387 @@
+openapi: 3.0.3
+info:
+  title: OpenCloud Cloud API
+  description: OpenCloud 云平台对接模块 API 接口文档
+  version: 1.0.0
+  contact:
+    name: OpenCloud Team
+
+servers:
+  - url: http://localhost:8080/api/cloud
+    description: 本地开发环境
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================
+  # 集群配置管理
+  # ============================================================
+  /clusters:
+    get:
+      summary: 获取集群列表
+      operationId: listClusters
+      tags:
+        - 集群管理
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [OPENSTACK, CEPH, KUBERNETES]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResultClusterVO'
+    
+    post:
+      summary: 新增集群配置
+      operationId: createCluster
+      tags:
+        - 集群管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterConfigDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultString'
+
+  /clusters/{id}:
+    put:
+      summary: 编辑集群配置
+      operationId: updateCluster
+      tags:
+        - 集群管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterConfigDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+    
+    delete:
+      summary: 删除集群配置
+      operationId: deleteCluster
+      tags:
+        - 集群管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /clusters/{id}/test:
+    post:
+      summary: 连接测试
+      operationId: testClusterConnection
+      tags:
+        - 集群管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultClusterTestResult'
+
+  /clusters/{id}/sync:
+    post:
+      summary: 手动触发同步
+      operationId: syncCluster
+      tags:
+        - 集群管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskId'
+
+  # ============================================================
+  # OpenStack 云主机管理
+  # ============================================================
+  /openstack/instances:
+    get:
+      summary: 云主机列表
+      operationId: listInstances
+      tags:
+        - OpenStack-云主机
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResultInstanceVO'
+    
+    post:
+      summary: 创建云主机
+      operationId: createInstance
+      tags:
+        - OpenStack-云主机
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskInfo'
+
+  /openstack/instances/{id}:
+    get:
+      summary: 云主机详情
+      operationId: getInstance
+      tags:
+        - OpenStack-云主机
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultInstanceVO'
+    
+    delete:
+      summary: 删除云主机
+      operationId: deleteInstance
+      tags:
+        - OpenStack-云主机
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: force
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskId'
+
+  /openstack/instances/{id}/action:
+    put:
+      summary: 云主机操作（启动/停止/重启）
+      operationId: instanceAction
+      tags:
+        - OpenStack-云主机
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceActionRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  # ============================================================
+  # OpenStack 规格管理
+  # ============================================================
+  /openstack/flavors:
+    get:
+      summary: 规格列表
+      operationId: listFlavors
+      tags:
+        - OpenStack-规格
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListFlavorVO'
+
+  # ============================================================
+  # OpenStack 密钥对管理
+  # ============================================================
+  /openstack/keypairs:
+    get:
+      summary: 密钥对列表
+      operationId: listKeyPairs
+      tags:
+        - OpenStack-密钥对
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListKeyPairVO'
+    
+    post:
+      summary: 创建密钥对
+      operationId: createKeyPair
+      tags:
+        - OpenStack-密钥对
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyPairCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultKeyPairVO'
+
+  /openstack/keypairs/{name}:
+    delete:
+      summary: 删除密钥对
+      operationId: deleteKeyPair
+      tags:
+        - OpenStack-密钥对
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  # ============================================================
+  # OpenStack 网络管理
+  # ============================================================
+  /openstack/networks:
+    get:
+      summary: 网络列表
+      operationId: listNetworks
+      tags:
+        - OpenStack-网络
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListNetworkVO'
+
+  /openstack/subnets:
+    get:
+      summary: 子网列表
+      operationId: listSubnets
+      tags:
+        - OpenStack-网络
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: networkId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListSubnetVO'
+
+  /openstack/security-groups:
+    get:
+      summary: 安全组列表
+      operationId: listSecurityGroups
+      tags:
+        - OpenStack-网络
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListSecurityGroupVO'
+
+  /openstack/floating-ips:
+    get:
+      summary: 浮动 IP 列表
+      operationId: listFloatingIps
+      tags:
+        - OpenStack-网络
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListFloatingIpVO'
+
+  # ============================================================
+  # OpenStack 镜像管理
+  # ============================================================
+  /openstack/images:
+    get:
+      summary: 镜像列表
+      operationId: listImages
+      tags:
+        - OpenStack-镜像
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: visibility
+          in: query
+          schema:
+            type: string
+            enum: [public, private, shared]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResultImageVO'
+
+  /openstack/images/upload:
+    post:
+      summary: 上传镜像
+      operationId: uploadImage
+      tags:
+        - OpenStack-镜像
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImageUploadRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskInfo'
+
+  /openstack/images/{id}:
+    delete:
+      summary: 删除镜像
+      operationId: deleteImage
+      tags:
+        - OpenStack-镜像
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  # ============================================================
+  # OpenStack 存储卷管理
+  # ============================================================
+  /openstack/volumes:
+    get:
+      summary: 卷列表
+      operationId: listVolumes
+      tags:
+        - OpenStack-存储
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResultVolumeVO'
+    
+    post:
+      summary: 创建卷
+      operationId: createVolume
+      tags:
+        - OpenStack-存储
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VolumeCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskInfo'
+
+  /openstack/volumes/{id}:
+    delete:
+      summary: 删除卷
+      operationId: deleteVolume
+      tags:
+        - OpenStack-存储
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /openstack/volumes/{id}/action:
+    put:
+      summary: 卷挂载/卸载
+      operationId: volumeAction
+      tags:
+        - OpenStack-存储
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VolumeActionRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /openstack/snapshots:
+    get:
+      summary: 快照列表
+      operationId: listSnapshots
+      tags:
+        - OpenStack-存储
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: volumeId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListSnapshotVO'
+    
+    post:
+      summary: 创建快照
+      operationId: createSnapshot
+      tags:
+        - OpenStack-存储
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnapshotCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskInfo'
+
+  # ============================================================
+  # Ceph 集群管理
+  # ============================================================
+  /ceph/overview:
+    get:
+      summary: Ceph 集群总览
+      operationId: getCephOverview
+      tags:
+        - Ceph-集群
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCephOverviewVO'
+
+  /ceph/pools:
+    get:
+      summary: 存储池列表
+      operationId: listCephPools
+      tags:
+        - Ceph-集群
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListCephPoolVO'
+
+  /ceph/pools/{name}:
+    get:
+      summary: 存储池详情
+      operationId: getCephPool
+      tags:
+        - Ceph-集群
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCephPoolVO'
+
+  /ceph/osds:
+    get:
+      summary: OSD 列表
+      operationId: listCephOsds
+      tags:
+        - Ceph-集群
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListCephOsdVO'
+
+  # ============================================================
+  # Ceph 对象存储管理
+  # ============================================================
+  /ceph/buckets:
+    get:
+      summary: Bucket 列表
+      operationId: listBuckets
+      tags:
+        - Ceph-对象存储
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListBucketVO'
+    
+    post:
+      summary: 创建 Bucket
+      operationId: createBucket
+      tags:
+        - Ceph-对象存储
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BucketCreateRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /ceph/buckets/{name}:
+    delete:
+      summary: 删除 Bucket
+      operationId: deleteBucket
+      tags:
+        - Ceph-对象存储
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /ceph/buckets/{name}/objects:
+    get:
+      summary: 对象列表
+      operationId: listObjects
+      tags:
+        - Ceph-对象存储
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: prefix
+          in: query
+          schema:
+            type: string
+        - name: marker
+          in: query
+          schema:
+            type: string
+        - name: maxKeys
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultObjectList'
+    
+    post:
+      summary: 上传对象
+      operationId: uploadObject
+      tags:
+        - Ceph-对象存储
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ObjectUploadRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /ceph/buckets/{name}/objects/{key}:
+    get:
+      summary: 下载对象
+      operationId: downloadObject
+      tags:
+        - Ceph-对象存储
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ============================================================
+  # Kubernetes 管理
+  # ============================================================
+  /k8s/namespaces:
+    get:
+      summary: 命名空间列表
+      operationId: listNamespaces
+      tags:
+        - Kubernetes-命名空间
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListNamespaceVO'
+
+  /k8s/deployments:
+    get:
+      summary: Deployment 列表
+      operationId: listDeployments
+      tags:
+        - Kubernetes-工作负载
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListDeploymentVO'
+
+  /k8s/deployments/{ns}/{name}/scale:
+    put:
+      summary: Deployment 扩缩容
+      operationId: scaleDeployment
+      tags:
+        - Kubernetes-工作负载
+      parameters:
+        - name: ns
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentScaleRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  /k8s/pods:
+    get:
+      summary: Pod 列表
+      operationId: listPods
+      tags:
+        - Kubernetes-工作负载
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+        - name: deployment
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListPodVO'
+
+  /k8s/pods/{ns}/{name}/logs:
+    get:
+      summary: Pod 日志（SSE 流）
+      operationId: getPodLogs
+      tags:
+        - Kubernetes-工作负载
+      parameters:
+        - name: ns
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: container
+          in: query
+          schema:
+            type: string
+        - name: tailLines
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: follow
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: 成功
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /k8s/services:
+    get:
+      summary: Service 列表
+      operationId: listServices
+      tags:
+        - Kubernetes-服务
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListServiceVO'
+
+  /k8s/configmaps:
+    get:
+      summary: ConfigMap 列表
+      operationId: listConfigMaps
+      tags:
+        - Kubernetes-配置
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListConfigMapVO'
+
+  /k8s/secrets:
+    get:
+      summary: Secret 列表
+      operationId: listSecrets
+      tags:
+        - Kubernetes-配置
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListSecretVO'
+
+  /k8s/nodes:
+    get:
+      summary: Node 列表
+      operationId: listNodes
+      tags:
+        - Kubernetes-节点
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultListNodeVO'
+
+  # ============================================================
+  # 配额管理
+  # ============================================================
+  /quotas/{tenantId}:
+    get:
+      summary: 获取配额
+      operationId: getQuota
+      tags:
+        - 配额管理
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultQuotaUsageVO'
+    
+    put:
+      summary: 设置配额
+      operationId: setQuota
+      tags:
+        - 配额管理
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotaSetRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+
+  # ============================================================
+  # 异步任务管理
+  # ============================================================
+  /tasks/{taskId}:
+    get:
+      summary: 获取任务详情
+      operationId: getTask
+      tags:
+        - 任务管理
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultTaskVO'
+
+  /tasks:
+    get:
+      summary: 任务列表
+      operationId: listTasks
+      tags:
+        - 任务管理
+      parameters:
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, RUNNING, SUCCESS, FAILED, CANCELLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResultTaskVO'
+
+# ============================================================
+# 组件定义
+# ============================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # 通用响应结构
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+
+    ResultVoid:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: 'null'
+
+    ResultString:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: string
+
+    PageResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        pages:
+          type: integer
+        current:
+          type: integer
+        records:
+          type: array
+          items:
+            type: object
+
+    # 集群配置
+    ClusterConfigDTO:
+      type: object
+      required:
+        - name
+        - type
+        - endpoint
+        - config
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        type:
+          type: string
+          enum: [OPENSTACK, CEPH, KUBERNETES]
+        endpoint:
+          type: string
+          maxLength: 256
+        config:
+          type: object
+
+    ClusterVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        endpoint:
+          type: string
+        status:
+          type: string
+        lastCheckTime:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PageResultClusterVO:
+      allOf:
+        - $ref: '#/components/schemas/PageResult'
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClusterVO'
+
+    ClusterTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        latencyMs:
+          type: integer
+
+    ResultClusterTestResult:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ClusterTestResult'
+
+    # 任务
+    TaskId:
+      type: object
+      properties:
+        taskId:
+          type: string
+
+    ResultTaskId:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TaskId'
+
+    TaskInfo:
+      type: object
+      properties:
+        taskId:
+          type: string
+        instanceId:
+          type: string
+        status:
+          type: string
+
+    ResultTaskInfo:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TaskInfo'
+
+    TaskVO:
+      type: object
+      properties:
+        taskId:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        progress:
+          type: integer
+        result:
+          type: object
+        errorMsg:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    ResultTaskVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TaskVO'
+
+    PageResultTaskVO:
+      allOf:
+        - $ref: '#/components/schemas/PageResult'
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/TaskVO'
+
+    # OpenStack 云主机
+    InstanceCreateRequest:
+      type: object
+      required:
+        - name
+        - clusterId
+        - flavorId
+        - networkIds
+      properties:
+        name:
+          type: string
+        clusterId:
+          type: string
+        flavorId:
+          type: string
+        imageId:
+          type: string
+        bootFromVolume:
+          type: boolean
+          default: false
+        volumeSize:
+          type: integer
+        networkIds:
+          type: array
+          items:
+            type: string
+        securityGroupIds:
+          type: array
+          items:
+            type: string
+        keyPairName:
+          type: string
+        count:
+          type: integer
+          default: 1
+        description:
+          type: string
+
+    InstanceActionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [start, stop, reboot, forceReboot]
+
+    FlavorVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        vcpus:
+          type: integer
+        ram:
+          type: integer
+        disk:
+          type: integer
+        ephemeral:
+          type: integer
+        swap:
+          type: integer
+        isPublic:
+          type: boolean
+
+    ResultListFlavorVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/FlavorVO'
+
+    KeyPairCreateRequest:
+      type: object
+      required:
+        - clusterId
+        - name
+      properties:
+        clusterId:
+          type: string
+        name:
+          type: string
+        publicKey:
+          type: string
+
+    KeyPairVO:
+      type: object
+      properties:
+        name:
+          type: string
+        fingerprint:
+          type: string
+        privateKey:
+          type: string
+        publicKey:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ResultKeyPairVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/KeyPairVO'
+
+    ResultListKeyPairVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/KeyPairVO'
+
+    InstanceVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        clusterId:
+          type: string
+        clusterName:
+          type: string
+        status:
+          type: string
+        flavor:
+          $ref: '#/components/schemas/FlavorVO'
+        image:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+        addresses:
+          type: object
+        keyName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ResultInstanceVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/InstanceVO'
+
+    PageResultInstanceVO:
+      allOf:
+        - $ref: '#/components/schemas/PageResult'
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/InstanceVO'
+
+    # OpenStack 网络
+    NetworkVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        subnets:
+          type: array
+          items:
+            type: string
+        adminStateUp:
+          type: boolean
+        external:
+          type: boolean
+        mtu:
+          type: integer
+
+    ResultListNetworkVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/NetworkVO'
+
+    SubnetVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        networkId:
+          type: string
+        cidr:
+          type: string
+        gatewayIp:
+          type: string
+        ipVersion:
+          type: integer
+        enableDhcp:
+          type: boolean
+
+    ResultListSubnetVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubnetVO'
+
+    SecurityGroupVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        rules:
+          type: array
+          items:
+            type: object
+
+    ResultListSecurityGroupVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecurityGroupVO'
+
+    FloatingIpVO:
+      type: object
+      properties:
+        id:
+          type: string
+        floatingIpAddress:
+          type: string
+        fixedIpAddress:
+          type: string
+        portId:
+          type: string
+        status:
+          type: string
+
+    ResultListFloatingIpVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/FloatingIpVO'
+
+    # OpenStack 镜像
+    ImageVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        visibility:
+          type: string
+        size:
+          type: integer
+        diskFormat:
+          type: string
+        minDisk:
+          type: integer
+        minRam:
+          type: integer
+        osType:
+          type: string
+        osDistro:
+          type: string
+
+    PageResultImageVO:
+      allOf:
+        - $ref: '#/components/schemas/PageResult'
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/ImageVO'
+
+    ImageUploadRequest:
+      type: object
+      required:
+        - file
+        - name
+      properties:
+        file:
+          type: string
+          format: binary
+        name:
+          type: string
+        diskFormat:
+          type: string
+        containerFormat:
+          type: string
+        visibility:
+          type: string
+
+    # OpenStack 存储
+    VolumeVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        size:
+          type: integer
+        volumeType:
+          type: string
+        bootable:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    PageResultVolumeVO:
+      allOf:
+        - $ref: '#/components/schemas/PageResult'
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/VolumeVO'
+
+    VolumeCreateRequest:
+      type: object
+      required:
+        - clusterId
+        - name
+        - size
+      properties:
+        clusterId:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+        volumeType:
+          type: string
+        description:
+          type: string
+
+    VolumeActionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [attach, detach]
+        instanceId:
+          type: string
+        device:
+          type: string
+
+    SnapshotVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        volumeId:
+          type: string
+        status:
+          type: string
+        size:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ResultListSnapshotVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SnapshotVO'
+
+    SnapshotCreateRequest:
+      type: object
+      required:
+        - clusterId
+        - volumeId
+        - name
+      properties:
+        clusterId:
+          type: string
+        volumeId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        force:
+          type: boolean
+          default: false
+
+    # Ceph
+    CephOverviewVO:
+      type: object
+      properties:
+        clusterStatus:
+          type: string
+        totalCapacityBytes:
+          type: integer
+        usedCapacityBytes:
+          type: integer
+        availableCapacityBytes:
+          type: integer
+        usagePercent:
+          type: number
+        osdCount:
+          type: integer
+        osdUpCount:
+          type: integer
+        osdInCount:
+          type: integer
+        pgCount:
+          type: integer
+        pgsByState:
+          type: object
+
+    ResultCephOverviewVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CephOverviewVO'
+
+    CephPoolVO:
+      type: object
+      properties:
+        name:
+          type: string
+        id:
+          type: integer
+        size:
+          type: integer
+        minSize:
+          type: integer
+        pgNum:
+          type: integer
+        type:
+          type: string
+        stats:
+          type: object
+
+    ResultCephPoolVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CephPoolVO'
+
+    ResultListCephPoolVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/CephPoolVO'
+
+    CephOsdVO:
+      type: object
+      properties:
+        osdId:
+          type: integer
+        host:
+          type: string
+        status:
+          type: string
+        clusterStatus:
+          type: string
+        reweight:
+          type: number
+        deviceClass:
+          type: string
+        usage:
+          type: object
+
+    ResultListCephOsdVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/CephOsdVO'
+
+    BucketVO:
+      type: object
+      properties:
+        name:
+          type: string
+        creationDate:
+          type: string
+          format: date-time
+        objectCount:
+          type: integer
+        sizeBytes:
+          type: integer
+
+    ResultListBucketVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/BucketVO'
+
+    BucketCreateRequest:
+      type: object
+      required:
+        - clusterId
+        - name
+      properties:
+        clusterId:
+          type: string
+        name:
+          type: string
+
+    ObjectVO:
+      type: object
+      properties:
+        key:
+          type: string
+        size:
+          type: integer
+        lastModified:
+          type: string
+          format: date-time
+        etag:
+          type: string
+        storageClass:
+          type: string
+
+    ObjectList:
+      type: object
+      properties:
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjectVO'
+        truncated:
+          type: boolean
+        nextMarker:
+          type: string
+
+    ResultObjectList:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ObjectList'
+
+    ObjectUploadRequest:
+      type: object
+      required:
+        - file
+        - key
+      properties:
+        file:
+          type: string
+          format: binary
+        key:
+          type: string
+
+    # Kubernetes
+    NamespaceVO:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+        labels:
+          type: object
+        creationTimestamp:
+          type: string
+          format: date-time
+
+    ResultListNamespaceVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/NamespaceVO'
+
+    DeploymentVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        replicas:
+          type: integer
+        readyReplicas:
+          type: integer
+        availableReplicas:
+          type: integer
+        images:
+          type: array
+          items:
+            type: string
+        creationTimestamp:
+          type: string
+          format: date-time
+
+    ResultListDeploymentVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeploymentVO'
+
+    DeploymentScaleRequest:
+      type: object
+      required:
+        - replicas
+      properties:
+        replicas:
+          type: integer
+          minimum: 0
+
+    PodVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        status:
+          type: string
+        nodeName:
+          type: string
+        restartCount:
+          type: integer
+        ip:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+
+    ResultListPodVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PodVO'
+
+    ServiceVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        type:
+          type: string
+        clusterIP:
+          type: string
+        ports:
+          type: array
+          items:
+            type: object
+        selector:
+          type: object
+
+    ResultListServiceVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ServiceVO'
+
+    ConfigMapVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        data:
+          type: object
+        creationTimestamp:
+          type: string
+          format: date-time
+
+    ResultListConfigMapVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConfigMapVO'
+
+    SecretVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        type:
+          type: string
+        dataKeys:
+          type: array
+          items:
+            type: string
+        creationTimestamp:
+          type: string
+          format: date-time
+
+    ResultListSecretVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecretVO'
+
+    NodeVO:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        capacity:
+          type: object
+        allocatable:
+          type: object
+        osImage:
+          type: string
+        kernelVersion:
+          type: string
+        kubeletVersion:
+          type: string
+
+    ResultListNodeVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/NodeVO'
+
+    # 配额
+    QuotaUsageVO:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        openstack:
+          type: object
+          properties:
+            vcpuLimit:
+              type: integer
+            vcpuUsed:
+              type: integer
+            vcpuUsagePercent:
+              type: number
+            memoryLimit:
+              type: integer
+            memoryUsed:
+              type: integer
+            memoryUsagePercent:
+              type: number
+            instanceLimit:
+              type: integer
+            instanceUsed:
+              type: integer
+            instanceUsagePercent:
+              type: number
+        ceph:
+          type: object
+          properties:
+            storageLimit:
+              type: integer
+            storageUsed:
+              type: integer
+            storageUsagePercent:
+              type: number
+        kubernetes:
+          type: object
+          properties:
+            cpuLimit:
+              type: integer
+            cpuUsed:
+              type: integer
+            cpuUsagePercent:
+              type: number
+            memoryLimit:
+              type: integer
+            memoryUsed:
+              type: integer
+            memoryUsagePercent:
+              type: number
+
+    ResultQuotaUsageVO:
+      allOf:
+        - $ref: '#/components/schemas/Result'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/QuotaUsageVO'
+
+    QuotaSetRequest:
+      type: object
+      properties:
+        openstack:
+          type: object
+          properties:
+            vcpuLimit:
+              type: integer
+            memoryLimit:
+              type: integer
+            instanceLimit:
+              type: integer
+            volumeCountLimit:
+              type: integer
+            volumeStorageLimit:
+              type: integer
+        ceph:
+          type: object
+          properties:
+            storageLimit:
+              type: integer
+        kubernetes:
+          type: object
+          properties:
+            cpuLimit:
+              type: integer
+            memoryLimit:
+              type: integer

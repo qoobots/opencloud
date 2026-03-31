@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.qoobot.opencloud.system.log.mapper.SysOperationLogMapper">
+
+    <!-- 分页查询操作日志 -->
+    <select id="selectPageVO" resultType="com.qoobot.opencloud.system.log.domain.vo.OperationLogVO">
+        SELECT id, user_id, username, module_name, operation_type, method,
+               request_url, request_param, response_result, exception_msg,
+               status, cost_time, operate_ip, operate_time
+        FROM sys_operation_log
+        WHERE tenant_id = #{tenantId}
+        <if test="q.username != null and q.username != ''">
+            AND username LIKE CONCAT('%', #{q.username}, '%')
+        </if>
+        <if test="q.moduleName != null and q.moduleName != ''">
+            AND module_name LIKE CONCAT('%', #{q.moduleName}, '%')
+        </if>
+        <if test="q.operationType != null and q.operationType != ''">
+            AND operation_type LIKE CONCAT('%', #{q.operationType}, '%')
+        </if>
+        <if test="q.status != null and q.status != ''">
+            AND status = #{q.status}
+        </if>
+        <if test="q.beginTime != null">
+            AND operate_time &gt;= #{q.beginTime}
+        </if>
+        <if test="q.endTime != null">
+            AND operate_time &lt;= #{q.endTime}
+        </if>
+        ORDER BY operate_time DESC
+    </select>
+
+    <!-- 导出操作日志（最大 10000 条） -->
+    <select id="selectForExport" resultType="com.qoobot.opencloud.system.log.domain.vo.OperationLogVO">
+        SELECT id, user_id, username, module_name, operation_type, method,
+               request_url, request_param, response_result, exception_msg,
+               status, cost_time, operate_ip, operate_time
+        FROM sys_operation_log
+        WHERE tenant_id = #{tenantId}
+        <if test="q.username != null and q.username != ''">
+            AND username LIKE CONCAT('%', #{q.username}, '%')
+        </if>
+        <if test="q.moduleName != null and q.moduleName != ''">
+            AND module_name LIKE CONCAT('%', #{q.moduleName}, '%')
+        </if>
+        <if test="q.status != null and q.status != ''">
+            AND status = #{q.status}
+        </if>
+        <if test="q.beginTime != null">
+            AND operate_time &gt;= #{q.beginTime}
+        </if>
+        <if test="q.endTime != null">
+            AND operate_time &lt;= #{q.endTime}
+        </if>
+        ORDER BY operate_time DESC
+        LIMIT 10000
+    </select>
+
+</mapper>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qoobot.opencloud.monitor.alert.record.mapper.AlertRecordMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="AlertRecordRM" type="com.qoobot.opencloud.monitor.alert.record.domain.entity.MonitorAlertRecord">
+        <id     column="id"           property="id"/>
+        <result column="tenant_id"    property="tenantId"/>
+        <result column="rule_id"      property="ruleId"/>
+        <result column="rule_name"    property="ruleName"/>
+        <result column="alert_name"   property="alertName"/>
+        <result column="severity"     property="severity"/>
+        <result column="instance"     property="instance"/>
+        <result column="labels"       property="labels"/>
+        <result column="annotations"  property="annotations"/>
+        <result column="summary"      property="summary"/>
+        <result column="status"       property="status"/>
+        <result column="fired_at"     property="firedAt"/>
+        <result column="resolved_at"  property="resolvedAt"/>
+        <result column="ack_by"       property="ackBy"/>
+        <result column="ack_at"       property="ackAt"/>
+        <result column="ack_note"     property="ackNote"/>
+        <result column="notified"     property="notified"/>
+        <result column="created_at"   property="createdAt"/>
+        <result column="updated_at"   property="updatedAt"/>
+    </resultMap>
+
+    <!-- 统计 VO 结果映射 -->
+    <resultMap id="AlertStatsRM" type="com.qoobot.opencloud.monitor.alert.record.domain.vo.AlertStatsVO">
+        <result column="total"               property="total"/>
+        <result column="firing"              property="firing"/>
+        <result column="acknowledged"        property="acknowledged"/>
+        <result column="resolved"            property="resolved"/>
+        <result column="critical_count"      property="criticalCount"/>
+        <result column="warning_count"       property="warningCount"/>
+        <result column="info_count"          property="infoCount"/>
+        <result column="avg_duration_seconds" property="avgDurationSeconds"/>
+    </resultMap>
+
+    <!-- 分页查询告警记录 -->
+    <select id="selectPageVO" resultMap="AlertRecordRM">
+        SELECT *
+        FROM monitor_alert_record
+        WHERE tenant_id = #{tenantId}
+        <if test="q != null and q.alertName != null and q.alertName != ''">
+            AND alert_name LIKE CONCAT('%', #{q.alertName}, '%')
+        </if>
+        <if test="q != null and q.severity != null and q.severity != ''">
+            AND severity = #{q.severity}
+        </if>
+        <if test="q != null and q.status != null and q.status != ''">
+            AND status = #{q.status}
+        </if>
+        <if test="q != null and q.instance != null and q.instance != ''">
+            AND instance LIKE CONCAT('%', #{q.instance}, '%')
+        </if>
+        <if test="q != null and q.ruleId != null">
+            AND rule_id = #{q.ruleId}
+        </if>
+        <if test="q != null and q.beginTime != null">
+            AND fired_at &gt;= #{q.beginTime}
+        </if>
+        <if test="q != null and q.endTime != null">
+            AND fired_at &lt;= #{q.endTime}
+        </if>
+        ORDER BY fired_at DESC
+    </select>
+
+    <!-- 告警统计查询 -->
+    <select id="selectStats" resultMap="AlertStatsRM">
+        SELECT
+            COUNT(*)                                                           AS total,
+            COUNT(*) FILTER (WHERE status = 'FIRING')                          AS firing,
+            COUNT(*) FILTER (WHERE status = 'ACKNOWLEDGED')                    AS acknowledged,
+            COUNT(*) FILTER (WHERE status = 'RESOLVED')                        AS resolved,
+            COUNT(*) FILTER (WHERE severity = 'CRITICAL')                      AS critical_count,
+            COUNT(*) FILTER (WHERE severity = 'WARNING')                        AS warning_count,
+            COUNT(*) FILTER (WHERE severity = 'INFO')                           AS info_count,
+            ROUND(
+                AVG(
+                    EXTRACT(EPOCH FROM (COALESCE(resolved_at, NOW()) - fired_at))
+                )::NUMERIC, 2
+            )                                                                   AS avg_duration_seconds
+        FROM monitor_alert_record
+        WHERE tenant_id = #{tenantId}
+          AND fired_at &gt;= #{beginTime}
+    </select>
+
+</mapper>
