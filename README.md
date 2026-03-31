@@ -378,39 +378,94 @@ git commit -m "docs: 更新部署文档"
 
 ## 🙏 致谢
 
-OpenCloud 的开发和维护离不开以下开源项目的支持：
+OpenCloud 的开发和维护离不开以下开源项目的支持，在此向所有开源贡献者致以崇高的敬意！
 
-- [OpenStack](https://www.openstack.org/)
-- [Kubernetes](https://kubernetes.io/)
-- [Istio](https://istio.io/)
-- [Rancher](https://rancher.com/)
-- [Ceph](https://ceph.io/)
-- [Prometheus](https://prometheus.io/)
-- [Grafana](https://grafana.com/)
-- [Elasticsearch](https://www.elastic.co/)
-- 以及所有其他开源项目
+### 核心项目
+
+- [OpenStack](https://www.openstack.org/) - 开源云计算平台
+- [Kubernetes](https://kubernetes.io/) - 容器编排引擎
+- [Istio](https://istio.io/) - 服务网格
+- [Rancher](https://rancher.com/) - Kubernetes 管理平台
+- [Ceph](https://ceph.io/) - 分布式存储系统
+
+### 可观测性
+
+- [Prometheus](https://prometheus.io/) - 监控系统
+- [Grafana](https://grafana.com/) - 数据可视化
+- [Elasticsearch](https://www.elastic.co/) - 搜索引擎
+- [Jaeger](https://www.jaegertracing.io/) - 分布式追踪
+
+### DevOps
+
+- [Harbor](https://goharbor.io/) - 镜像仓库
+- [Terraform](https://www.terraform.io/) - 基础设施即代码
+- [Ansible](https://www.ansible.com/) - 自动化运维
+- [GitLab](https://about.gitlab.com/) - DevOps 平台
+
+### 安全
+
+- [HashiCorp Vault](https://www.hashicorp.com/products/vault) - 密钥管理
+- [Suricata](https://suricata.io/) - 入侵检测
+- [Wazuh](https://wazuh.com/) - 安全平台
+
+以及所有其他开源项目和贡献者！
 
 ---
 
 ## 📮 联系我们
 
-- **官方网站**: https://opencloud.io（待建设）
-- **GitHub**: https://github.com/your-org/opencloud
-- **邮箱**: support@opencloud.io
-- **微信群**: 扫码加入（待提供）
+| 渠道 | 地址 |
+|------|------|
+| **官方网站** | https://opencloud.io（待建设）|
+| **GitHub** | https://github.com/your-org/opencloud |
+| **Issues** | https://github.com/your-org/opencloud/issues |
+| **Discussions** | https://github.com/your-org/opencloud/discussions |
+| **邮箱** | dev@opencloud.io |
+| **技术支持** | support@opencloud.io |
+
+### 社区
+
+- 📧 **邮件列表**: dev@opencloud.io
+- 💬 **Discord**: [加入我们的 Discord](https://discord.gg/your-invite)（待建设）
+- 🐦 **Twitter**: [@opencloud](https://twitter.com/opencloud)（待建设）
+- 📺 **YouTube**: [OpenCloud Channel](https://youtube.com/@opencloud)（待建设）
 
 ---
 
 ## ⭐ Star History
 
-如果这个项目对你有帮助，请给我们一个 Star！
+如果这个项目对你有帮助，请给我们一个 ⭐ Star！
 
 [![Star History Chart](https://api.star-history.com/svg?repos=your-org/opencloud&type=Date)](https://star-history.com/#your-org/opencloud&Date)
 
 ---
 
+## 📄 License
+
+本项目采用 [Apache License 2.0](./LICENSE) 开源协议。
+
+```
+Copyright 2024 OpenCloud Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+---
+
 <div align="center">
 
-**Made with ❤️ by OpenCloud Team**
+**Made with ❤️ by [OpenCloud Team](https://github.com/your-org/opencloud/graphs/contributors)**
+
+[⬆ 返回顶部](#opencloud-开源云计算平台)
 
 </div>
