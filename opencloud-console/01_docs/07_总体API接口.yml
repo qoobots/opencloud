@@ -1,0 +1,3421 @@
+openapi: 3.0.3
+
+info:
+  title: OpenCloud 控制台 API
+  description: |
+    OpenCloud 云计算管理平台统一 API 接口文档。
+
+    ## 认证方式
+    所有需要认证的接口需在 Header 中携带：
+    ```
+    Authorization: Bearer <accessToken>
+    ```
+
+    ## 统一响应格式
+    ```json
+    {
+      "code":    0,
+      "message": "操作成功",
+      "data":    {}
+    }
+    ```
+
+    - `code = 0`：成功
+    - `code != 0`：失败，`message` 中包含错误说明
+
+    ## 模块说明
+    | 模块 | 路径前缀 | 说明 |
+    |------|---------|------|
+    | 认证授权 | `/auth` | 登录、登出、Token 刷新、验证码、修改密码 |
+    | 系统管理 | `/api/system` | 用户、角色、菜单、部门、租户、字典、日志管理 |
+    | 云平台管理 | `/api/cloud` | 集群、云主机、网络、存储、K8s 管理 |
+    | 监控告警 | `/api/monitor` | 指标查询、告警规则、告警记录、静默、通知渠道 |
+    | 运维管理 | `/actuator` | 健康检查、Prometheus 指标 |
+
+  version: "1.0.0"
+  contact:
+    name: OpenCloud 开发团队
+
+servers:
+  - url: http://localhost:8080
+    description: 开发环境
+  - url: https://api.opencloud.example.com
+    description: 生产环境
+
+tags:
+  # 认证授权
+  - name: 认证授权
+    description: 用户登录、Token 管理、验证码、密码修改
+  # 系统管理
+  - name: 系统管理-用户
+    description: 用户增删改查、状态管理
+  - name: 系统管理-角色
+    description: 角色定义与权限分配
+  - name: 系统管理-菜单
+    description: 菜单树维护、动态路由
+  - name: 系统管理-部门
+    description: 部门组织架构管理
+  - name: 系统管理-租户
+    description: 多租户管理
+  - name: 系统管理-字典
+    description: 字典类型和数据管理
+  - name: 系统管理-日志
+    description: 操作日志、登录日志查询
+  # 云平台
+  - name: 云平台-集群
+    description: 集群配置与连接测试
+  - name: 云平台-云主机
+    description: OpenStack Nova 云主机管理
+  - name: 云平台-规格
+    description: OpenStack 规格查询
+  - name: 云平台-密钥对
+    description: OpenStack 密钥对管理
+  - name: 云平台-网络
+    description: Neutron 网络/子网/安全组/浮动IP管理
+  - name: 云平台-镜像
+    description: OpenStack Glance 镜像管理
+  - name: 云平台-存储
+    description: Cinder 卷/快照、Ceph 对象存储管理
+  - name: 云平台-K8s
+    description: Kubernetes 工作负载/服务/配置/节点管理
+  - name: 云平台-配额
+    description: 资源配额管理
+  - name: 云平台-任务
+    description: 异步任务查询
+  # 监控告警
+  - name: 监控-指标
+    description: Prometheus PromQL 查询
+  - name: 监控-Grafana
+    description: Grafana 面板集成
+  - name: 监控-告警规则
+    description: 告警规则 CRUD
+  - name: 监控-告警记录
+    description: 告警事件查询与确认
+  - name: 监控-静默规则
+    description: 告警静默管理
+  - name: 监控-通知渠道
+    description: 通知渠道配置
+  - name: 监控-通知日志
+    description: 通知发送记录查询
+  # 运维管理
+  - name: 运维管理
+    description: Actuator 健康检查与指标
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # 通用响应
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: 操作成功
+        data:
+          nullable: true
+
+    PageResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        pages:
+          type: integer
+          example: 10
+        current:
+          type: integer
+          example: 1
+        size:
+          type: integer
+          example: 10
+        records:
+          type: array
+          items: {}
+
+    # 认证授权
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: Admin@123
+        captchaKey:
+          type: string
+          description: 验证码 Key
+        captchaCode:
+          type: string
+          description: 验证码内容
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpireAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+        refreshTokenExpireAt:
+          type: string
+          format: date-time
+        tokenType:
+          type: string
+          example: Bearer
+        userInfo:
+          type: object
+          properties:
+            userId:
+              type: string
+            username:
+              type: string
+            nickname:
+              type: string
+            tenantId:
+              type: string
+
+    CaptchaVO:
+      type: object
+      properties:
+        captchaKey:
+          type: string
+        captchaImage:
+          type: string
+          description: Base64 编码图片
+
+    CurrentUserVO:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        nickname:
+          type: string
+        avatar:
+          type: string
+        tenantId:
+          type: string
+        tenantName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    # 系统管理
+    UserVO:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        nickname:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        deptId:
+          type: integer
+        deptName:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        roleName:
+          type: string
+        roleCode:
+          type: string
+        description:
+          type: string
+        isBuiltin:
+          type: boolean
+        status:
+          type: string
+        sort:
+          type: integer
+
+    MenuTreeVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        parentId:
+          type: integer
+        menuName:
+          type: string
+        menuType:
+          type: integer
+        path:
+          type: string
+        component:
+          type: string
+        icon:
+          type: string
+        permission:
+          type: string
+        visible:
+          type: boolean
+        sort:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuTreeVO'
+
+    DeptTreeVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        parentId:
+          type: integer
+        deptName:
+          type: string
+        leader:
+          type: string
+        phone:
+          type: string
+        sort:
+          type: integer
+        status:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeptTreeVO'
+
+    TenantVO:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantCode:
+          type: string
+        tenantName:
+          type: string
+        contactName:
+          type: string
+        contactEmail:
+          type: string
+        status:
+          type: string
+        isDefault:
+          type: boolean
+        expireTime:
+          type: string
+          format: date-time
+        userCount:
+          type: integer
+
+    DictTypeVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        dictType:
+          type: string
+        dictName:
+          type: string
+        isSystem:
+          type: boolean
+        status:
+          type: string
+
+    DictDataVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        dictType:
+          type: string
+        dictLabel:
+          type: string
+        dictValue:
+          type: string
+        sort:
+          type: integer
+        isDefault:
+          type: boolean
+        status:
+          type: string
+
+    OperationLogVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        moduleName:
+          type: string
+        operationType:
+          type: string
+        method:
+          type: string
+        requestUrl:
+          type: string
+        status:
+          type: string
+        costTime:
+          type: integer
+        operateIp:
+          type: string
+        operateTime:
+          type: string
+          format: date-time
+
+    LoginLogVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        loginIp:
+          type: string
+        userAgent:
+          type: string
+        loginTime:
+          type: string
+          format: date-time
+        logoutTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+        failReason:
+          type: string
+
+    # 云平台
+    ClusterVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        endpoint:
+          type: string
+        status:
+          type: string
+        lastCheckTime:
+          type: string
+          format: date-time
+        errorMsg:
+          type: string
+
+    InstanceVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        flavor:
+          type: object
+        image:
+          type: object
+        addresses:
+          type: object
+        keyName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    FlavorVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        vcpus:
+          type: integer
+        ram:
+          type: integer
+        disk:
+          type: integer
+
+    KeyPairVO:
+      type: object
+      properties:
+        name:
+          type: string
+        fingerprint:
+          type: string
+        privateKey:
+          type: string
+        publicKey:
+          type: string
+
+    NetworkVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        subnets:
+          type: array
+          items:
+            type: string
+
+    SubnetVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        networkId:
+          type: string
+        cidr:
+          type: string
+        gatewayIp:
+          type: string
+
+    SecurityGroupVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+
+    FloatingIpVO:
+      type: object
+      properties:
+        id:
+          type: string
+        floatingIpAddress:
+          type: string
+        fixedIpAddress:
+          type: string
+        status:
+          type: string
+
+    ImageVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        visibility:
+          type: string
+        size:
+          type: integer
+
+    VolumeVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        size:
+          type: integer
+        volumeType:
+          type: string
+
+    SnapshotVO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        volumeId:
+          type: string
+        status:
+          type: string
+        size:
+          type: integer
+
+    CephOverviewVO:
+      type: object
+      properties:
+        clusterStatus:
+          type: string
+        totalCapacityBytes:
+          type: integer
+        usedCapacityBytes:
+          type: integer
+        usagePercent:
+          type: number
+        osdCount:
+          type: integer
+        pgCount:
+          type: integer
+
+    BucketVO:
+      type: object
+      properties:
+        name:
+          type: string
+        creationDate:
+          type: string
+          format: date-time
+
+    NamespaceVO:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+
+    DeploymentVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        replicas:
+          type: integer
+        readyReplicas:
+          type: integer
+
+    PodVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        status:
+          type: string
+        nodeName:
+          type: string
+        ip:
+          type: string
+
+    ServiceVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        type:
+          type: string
+        clusterIP:
+          type: string
+
+    ConfigMapVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        data:
+          type: object
+
+    SecretVO:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        type:
+          type: string
+
+    NodeVO:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+
+    QuotaUsageVO:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        openstack:
+          type: object
+        ceph:
+          type: object
+        kubernetes:
+          type: object
+
+    TaskVO:
+      type: object
+      properties:
+        taskId:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        progress:
+          type: integer
+
+    # 监控告警
+    AlertRuleVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        ruleName:
+          type: string
+        description:
+          type: string
+        promqlExpr:
+          type: string
+        severity:
+          type: string
+        duration:
+          type: string
+        notifyChannelIds:
+          type: array
+          items:
+            type: integer
+        notifyOnResolve:
+          type: boolean
+        status:
+          type: string
+
+    AlertRecordVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        ruleId:
+          type: integer
+        ruleName:
+          type: string
+        alertName:
+          type: string
+        severity:
+          type: string
+        instance:
+          type: string
+        labels:
+          type: object
+        summary:
+          type: string
+        status:
+          type: string
+        firedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+
+    AlertSilenceVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        silenceName:
+          type: string
+        description:
+          type: string
+        matchLabels:
+          type: array
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+
+    NotifyChannelVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        channelName:
+          type: string
+        channelType:
+          type: string
+        status:
+          type: string
+
+    NotifyLogVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        alertRecordId:
+          type: integer
+        channelName:
+          type: string
+        channelType:
+          type: string
+        isTest:
+          type: boolean
+        status:
+          type: string
+        errorMsg:
+          type: string
+        retryCount:
+          type: integer
+        sentAt:
+          type: string
+          format: date-time
+
+    MetricsQueryVO:
+      type: object
+      properties:
+        resultType:
+          type: string
+        result:
+          type: array
+
+# ============================================================
+# Paths
+# ============================================================
+
+paths:
+
+  # ============================================================
+  # 认证授权（/auth）
+  # ============================================================
+
+  /auth/captcha:
+    get:
+      tags: [认证授权]
+      summary: 获取图形验证码
+      operationId: getCaptcha
+      security: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /auth/login:
+    post:
+      tags: [认证授权]
+      summary: 用户登录
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /auth/token/refresh:
+    post:
+      tags: [认证授权]
+      summary: 刷新 Token
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+
+  /auth/logout:
+    post:
+      tags: [认证授权]
+      summary: 用户登出
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+
+  /auth/me:
+    get:
+      tags: [认证授权]
+      summary: 获取当前用户信息
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+
+  /auth/password/change:
+    post:
+      tags: [认证授权]
+      summary: 修改密码
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+                confirmPassword:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+
+  /auth/admin/force-logout/{targetUserId}:
+    post:
+      tags: [认证授权]
+      summary: 管理员强制下线
+      operationId: forceLogout
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /auth/admin/unlock/{targetUserId}:
+    post:
+      tags: [认证授权]
+      summary: 管理员解锁账号
+      operationId: unlockAccount
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 用户（/api/system）
+  # ============================================================
+
+  /api/system/users:
+    get:
+      tags: [系统管理-用户]
+      summary: 用户分页列表
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: nickname
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-用户]
+      summary: 新增用户
+      operationId: addUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                nickname:
+                  type: string
+                password:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                deptId:
+                  type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/users/{id}:
+    get:
+      tags: [系统管理-用户]
+      summary: 用户详情
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [系统管理-用户]
+      summary: 编辑用户
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-用户]
+      summary: 删除用户
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/users/{id}/status:
+    put:
+      tags: [系统管理-用户]
+      summary: 启用/禁用用户
+      operationId: updateUserStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/users/{id}/roles:
+    put:
+      tags: [系统管理-用户]
+      summary: 分配用户角色
+      operationId: assignUserRoles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleIds:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/users/{id}/password:
+    put:
+      tags: [系统管理-用户]
+      summary: 重置用户密码
+      operationId: resetUserPassword
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 角色
+  # ============================================================
+
+  /api/system/roles:
+    get:
+      tags: [系统管理-角色]
+      summary: 角色列表
+      operationId: listRoles
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-角色]
+      summary: 新增角色
+      operationId: addRole
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/roles/{id}:
+    get:
+      tags: [系统管理-角色]
+      summary: 角色详情
+      operationId: getRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [系统管理-角色]
+      summary: 编辑角色
+      operationId: updateRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-角色]
+      summary: 删除角色
+      operationId: deleteRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/roles/{id}/menus:
+    get:
+      tags: [系统管理-角色]
+      summary: 获取角色菜单权限
+      operationId: getRoleMenus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [系统管理-角色]
+      summary: 分配角色菜单权限
+      operationId: assignRoleMenus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 菜单
+  # ============================================================
+
+  /api/system/menus:
+    get:
+      tags: [系统管理-菜单]
+      summary: 全量菜单树
+      operationId: getMenuTree
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-菜单]
+      summary: 新增菜单
+      operationId: addMenu
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/menus/current:
+    get:
+      tags: [系统管理-菜单]
+      summary: 当前用户菜单树
+      operationId: getCurrentUserMenus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/menus/{id}:
+    put:
+      tags: [系统管理-菜单]
+      summary: 编辑菜单
+      operationId: updateMenu
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-菜单]
+      summary: 删除菜单
+      operationId: deleteMenu
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 部门
+  # ============================================================
+
+  /api/system/depts:
+    get:
+      tags: [系统管理-部门]
+      summary: 部门树
+      operationId: getDeptTree
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-部门]
+      summary: 新增部门
+      operationId: addDept
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/depts/{id}:
+    put:
+      tags: [系统管理-部门]
+      summary: 编辑部门
+      operationId: updateDept
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-部门]
+      summary: 删除部门
+      operationId: deleteDept
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 租户
+  # ============================================================
+
+  /api/system/tenants:
+    get:
+      tags: [系统管理-租户]
+      summary: 租户分页列表
+      operationId: listTenants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-租户]
+      summary: 新增租户
+      operationId: addTenant
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/tenants/{id}:
+    get:
+      tags: [系统管理-租户]
+      summary: 租户详情
+      operationId: getTenant
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [系统管理-租户]
+      summary: 编辑租户
+      operationId: updateTenant
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-租户]
+      summary: 删除租户
+      operationId: deleteTenant
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 字典
+  # ============================================================
+
+  /api/system/dict/types:
+    get:
+      tags: [系统管理-字典]
+      summary: 字典类型分页列表
+      operationId: listDictTypes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-字典]
+      summary: 新增字典类型
+      operationId: addDictType
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/dict/types/{id}:
+    put:
+      tags: [系统管理-字典]
+      summary: 编辑字典类型
+      operationId: updateDictType
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-字典]
+      summary: 删除字典类型
+      operationId: deleteDictType
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/dict/data:
+    get:
+      tags: [系统管理-字典]
+      summary: 字典数据列表
+      operationId: listDictData
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [系统管理-字典]
+      summary: 新增字典数据
+      operationId: addDictData
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/dict/data/{id}:
+    put:
+      tags: [系统管理-字典]
+      summary: 编辑字典数据
+      operationId: updateDictData
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [系统管理-字典]
+      summary: 删除字典数据
+      operationId: deleteDictData
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 系统管理 - 日志
+  # ============================================================
+
+  /api/system/logs/operation:
+    get:
+      tags: [系统管理-日志]
+      summary: 操作日志分页查询
+      operationId: listOperationLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: moduleName
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/system/logs/login:
+    get:
+      tags: [系统管理-日志]
+      summary: 登录日志分页查询
+      operationId: listLoginLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: username
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - 集群管理（/api/cloud）
+  # ============================================================
+
+  /api/cloud/clusters:
+    get:
+      tags: [云平台-集群]
+      summary: 集群列表
+      operationId: listClusters
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-集群]
+      summary: 新增集群
+      operationId: addCluster
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/clusters/{id}:
+    put:
+      tags: [云平台-集群]
+      summary: 编辑集群
+      operationId: updateCluster
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [云平台-集群]
+      summary: 删除集群
+      operationId: deleteCluster
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/clusters/{id}/test:
+    post:
+      tags: [云平台-集群]
+      summary: 连接测试
+      operationId: testClusterConnection
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/clusters/{id}/sync:
+    post:
+      tags: [云平台-集群]
+      summary: 手动触发同步
+      operationId: syncCluster
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - OpenStack 云主机
+  # ============================================================
+
+  /api/cloud/openstack/instances:
+    get:
+      tags: [云平台-云主机]
+      summary: 云主机列表
+      operationId: listInstances
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-云主机]
+      summary: 创建云主机
+      operationId: createInstance
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/instances/{id}:
+    get:
+      tags: [云平台-云主机]
+      summary: 云主机详情
+      operationId: getInstance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [云平台-云主机]
+      summary: 删除云主机
+      operationId: deleteInstance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/instances/{id}/action:
+    put:
+      tags: [云平台-云主机]
+      summary: 云主机操作
+      operationId: instanceAction
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - OpenStack 规格
+  # ============================================================
+
+  /api/cloud/openstack/flavors:
+    get:
+      tags: [云平台-规格]
+      summary: 规格列表
+      operationId: listFlavors
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - OpenStack 密钥对
+  # ============================================================
+
+  /api/cloud/openstack/keypairs:
+    get:
+      tags: [云平台-密钥对]
+      summary: 密钥对列表
+      operationId: listKeyPairs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-密钥对]
+      summary: 创建密钥对
+      operationId: createKeyPair
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/keypairs/{name}:
+    delete:
+      tags: [云平台-密钥对]
+      summary: 删除密钥对
+      operationId: deleteKeyPair
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - OpenStack 网络
+  # ============================================================
+
+  /api/cloud/openstack/networks:
+    get:
+      tags: [云平台-网络]
+      summary: 网络列表
+      operationId: listNetworks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/subnets:
+    get:
+      tags: [云平台-网络]
+      summary: 子网列表
+      operationId: listSubnets
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: networkId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/security-groups:
+    get:
+      tags: [云平台-网络]
+      summary: 安全组列表
+      operationId: listSecurityGroups
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/floating-ips:
+    get:
+      tags: [云平台-网络]
+      summary: 浮动 IP 列表
+      operationId: listFloatingIps
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - OpenStack 镜像
+  # ============================================================
+
+  /api/cloud/openstack/images:
+    get:
+      tags: [云平台-镜像]
+      summary: 镜像列表
+      operationId: listImages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: visibility
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/images/upload:
+    post:
+      tags: [云平台-镜像]
+      summary: 上传镜像
+      operationId: uploadImage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/images/{id}:
+    delete:
+      tags: [云平台-镜像]
+      summary: 删除镜像
+      operationId: deleteImage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - OpenStack 存储
+  # ============================================================
+
+  /api/cloud/openstack/volumes:
+    get:
+      tags: [云平台-存储]
+      summary: 卷列表
+      operationId: listVolumes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-存储]
+      summary: 创建卷
+      operationId: createVolume
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/volumes/{id}:
+    delete:
+      tags: [云平台-存储]
+      summary: 删除卷
+      operationId: deleteVolume
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/volumes/{id}/action:
+    put:
+      tags: [云平台-存储]
+      summary: 卷挂载/卸载
+      operationId: volumeAction
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/openstack/snapshots:
+    get:
+      tags: [云平台-存储]
+      summary: 快照列表
+      operationId: listSnapshots
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-存储]
+      summary: 创建快照
+      operationId: createSnapshot
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - Ceph 集群
+  # ============================================================
+
+  /api/cloud/ceph/overview:
+    get:
+      tags: [云平台-集群]
+      summary: Ceph 集群总览
+      operationId: getCephOverview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/ceph/pools:
+    get:
+      tags: [云平台-集群]
+      summary: 存储池列表
+      operationId: listCephPools
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/ceph/pools/{name}:
+    get:
+      tags: [云平台-集群]
+      summary: 存储池详情
+      operationId: getCephPool
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/ceph/osds:
+    get:
+      tags: [云平台-集群]
+      summary: OSD 列表
+      operationId: listCephOsds
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - Ceph 对象存储
+  # ============================================================
+
+  /api/cloud/ceph/buckets:
+    get:
+      tags: [云平台-存储]
+      summary: Bucket 列表
+      operationId: listBuckets
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-存储]
+      summary: 创建 Bucket
+      operationId: createBucket
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/ceph/buckets/{name}:
+    delete:
+      tags: [云平台-存储]
+      summary: 删除 Bucket
+      operationId: deleteBucket
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/ceph/buckets/{name}/objects:
+    get:
+      tags: [云平台-存储]
+      summary: 对象列表
+      operationId: listObjects
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [云平台-存储]
+      summary: 上传对象
+      operationId: uploadObject
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/ceph/buckets/{name}/objects/{key}:
+    get:
+      tags: [云平台-存储]
+      summary: 下载对象
+      operationId: downloadObject
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ============================================================
+  # 云平台 - Kubernetes
+  # ============================================================
+
+  /api/cloud/k8s/namespaces:
+    get:
+      tags: [云平台-K8s]
+      summary: 命名空间列表
+      operationId: listNamespaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/deployments:
+    get:
+      tags: [云平台-K8s]
+      summary: Deployment 列表
+      operationId: listDeployments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/deployments/{ns}/{name}/scale:
+    put:
+      tags: [云平台-K8s]
+      summary: Deployment 扩缩容
+      operationId: scaleDeployment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ns
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                replicas:
+                  type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/pods:
+    get:
+      tags: [云平台-K8s]
+      summary: Pod 列表
+      operationId: listPods
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/pods/{ns}/{name}/logs:
+    get:
+      tags: [云平台-K8s]
+      summary: Pod 日志
+      operationId: getPodLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ns
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: container
+          in: query
+          schema:
+            type: string
+        - name: tailLines
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: 成功
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /api/cloud/k8s/services:
+    get:
+      tags: [云平台-K8s]
+      summary: Service 列表
+      operationId: listServices
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/configmaps:
+    get:
+      tags: [云平台-K8s]
+      summary: ConfigMap 列表
+      operationId: listConfigMaps
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/secrets:
+    get:
+      tags: [云平台-K8s]
+      summary: Secret 列表
+      operationId: listSecrets
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/k8s/nodes:
+    get:
+      tags: [云平台-K8s]
+      summary: Node 列表
+      operationId: listNodes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - 配额管理
+  # ============================================================
+
+  /api/cloud/quotas/{tenantId}:
+    get:
+      tags: [云平台-配额]
+      summary: 获取配额
+      operationId: getQuota
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [云平台-配额]
+      summary: 设置配额
+      operationId: setQuota
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 云平台 - 任务管理
+  # ============================================================
+
+  /api/cloud/tasks/{taskId}:
+    get:
+      tags: [云平台-任务]
+      summary: 获取任务详情
+      operationId: getTask
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/cloud/tasks:
+    get:
+      tags: [云平台-任务]
+      summary: 任务列表
+      operationId: listTasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - 指标查询（/api/monitor）
+  # ============================================================
+
+  /api/monitor/metrics/query:
+    get:
+      tags: [监控-指标]
+      summary: PromQL 查询
+      operationId: queryMetrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: time
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/metrics/queryRange:
+    get:
+      tags: [监控-指标]
+      summary: 范围查询
+      operationId: queryRangeMetrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: step
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - Grafana
+  # ============================================================
+
+  /api/monitor/grafana/dashboards:
+    get:
+      tags: [监控-Grafana]
+      summary: 仪表盘列表
+      operationId: listGrafanaDashboards
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/grafana/panels/{id}/render:
+    get:
+      tags: [监控-Grafana]
+      summary: 渲染面板
+      operationId: renderGrafanaPanel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: clusterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - 告警规则
+  # ============================================================
+
+  /api/monitor/alert-rules:
+    get:
+      tags: [监控-告警规则]
+      summary: 告警规则列表
+      operationId: listAlertRules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: ruleName
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [监控-告警规则]
+      summary: 创建告警规则
+      operationId: createAlertRule
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleVO'
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/alert-rules/{id}:
+    get:
+      tags: [监控-告警规则]
+      summary: 告警规则详情
+      operationId: getAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [监控-告警规则]
+      summary: 更新告警规则
+      operationId: updateAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleVO'
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [监控-告警规则]
+      summary: 删除告警规则
+      operationId: deleteAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/alert-rules/{id}/enable:
+    put:
+      tags: [监控-告警规则]
+      summary: 启用告警规则
+      operationId: enableAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/alert-rules/{id}/disable:
+    put:
+      tags: [监控-告警规则]
+      summary: 禁用告警规则
+      operationId: disableAlertRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - 告警记录
+  # ============================================================
+
+  /api/monitor/alert-records:
+    get:
+      tags: [监控-告警记录]
+      summary: 告警记录列表
+      operationId: listAlertRecords
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: alertName
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/alert-records/{id}:
+    get:
+      tags: [监控-告警记录]
+      summary: 告警记录详情
+      operationId: getAlertRecord
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/alert-records/{id}/ack:
+    post:
+      tags: [监控-告警记录]
+      summary: 确认告警
+      operationId: ackAlertRecord
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - 静默规则
+  # ============================================================
+
+  /api/monitor/silences:
+    get:
+      tags: [监控-静默规则]
+      summary: 静默规则列表
+      operationId: listAlertSilences
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [监控-静默规则]
+      summary: 创建静默规则
+      operationId: createAlertSilence
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertSilenceVO'
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/silences/{id}:
+    get:
+      tags: [监控-静默规则]
+      summary: 静默规则详情
+      operationId: getAlertSilence
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [监控-静默规则]
+      summary: 删除静默规则
+      operationId: deleteAlertSilence
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - 通知渠道
+  # ============================================================
+
+  /api/monitor/notify-channels:
+    get:
+      tags: [监控-通知渠道]
+      summary: 通知渠道列表
+      operationId: listNotifyChannels
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+    post:
+      tags: [监控-通知渠道]
+      summary: 创建通知渠道
+      operationId: createNotifyChannel
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyChannelVO'
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/notify-channels/{id}:
+    get:
+      tags: [监控-通知渠道]
+      summary: 通知渠道详情
+      operationId: getNotifyChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+    put:
+      tags: [监控-通知渠道]
+      summary: 更新通知渠道
+      operationId: updateNotifyChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyChannelVO'
+      responses:
+        '200':
+          description: 成功
+    delete:
+      tags: [监控-通知渠道]
+      summary: 删除通知渠道
+      operationId: deleteNotifyChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  /api/monitor/notify-channels/{id}/test:
+    post:
+      tags: [监控-通知渠道]
+      summary: 测试通知渠道
+      operationId: testNotifyChannel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - 通知日志
+  # ============================================================
+
+  /api/monitor/notify-logs:
+    get:
+      tags: [监控-通知日志]
+      summary: 通知日志列表
+      operationId: listNotifyLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: alertRecordId
+          in: query
+          schema:
+            type: integer
+        - name: channelId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+
+  # ============================================================
+  # 监控 - AlertManager Webhook（内部接口）
+  # ============================================================
+
+  /api/monitor/webhook/alertmanager:
+    post:
+      tags: [监控-告警记录]
+      summary: AlertManager Webhook 接收
+      operationId: alertManagerWebhook
+      description: |
+        由 AlertManager 调用，接收告警推送。
+        注意：此接口不对外开放，应通过网络策略限制只允许 AlertManager IP 访问。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: 接收成功
+
+  # ============================================================
+  # 运维管理 - Actuator
+  # ============================================================
+
+  /actuator/health:
+    get:
+      tags: [运维管理]
+      summary: 健康检查
+      operationId: health
+      responses:
+        '200':
+          description: 服务健康
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+        '503':
+          description: 服务不健康
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /actuator/prometheus:
+    get:
+      tags: [运维管理]
+      summary: Prometheus 指标
+      operationId: prometheusMetrics
+      responses:
+        '200':
+          description: 指标数据
+          content:
+            text/plain:
+              schema:
+                type: string

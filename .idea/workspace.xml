@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="5d8ae099-ff3b-4d46-ae7d-4f82e323dc0c" name="更改" comment="fix">
+      <change beforePath="$PROJECT_DIR$/opencloud-console/.workbuddy/memory/2026-03-31.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/.workbuddy/memory/2026-03-31.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/.workbuddy/memory/MEMORY.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/.workbuddy/memory/MEMORY.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/01_docs/01_总体开发进度.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/01_docs/01_总体开发进度.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/01_docs/02_总体业务设计.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/01_docs/02_总体业务设计.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/01_docs/03_总体应用设计.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/01_docs/03_总体应用设计.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/01_docs/04_总体数据设计.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/01_docs/04_总体数据设计.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/01_docs/05_总体技术设计.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/01_docs/05_总体技术设计.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/opencloud-ui/01_docs/01_开发进度.md" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/opencloud-ui/01_docs/01_开发进度.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/router/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/router/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/stores/user.ts" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/stores/user.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/views/dashboard/DashboardView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/opencloud-console/opencloud-ui/src/views/dashboard/DashboardView.vue" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;qoobot-com&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/qoobot-com/opencloud.git&quot;,
+    &quot;accountId&quot;: &quot;5415de4d-f004-4096-b10f-a53db0db6890&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="3A6DFwrXLNk2GW7HISR8cdQhiuy" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.installer.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/05workspaces/opencloud&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\05workspaces\opencloud\01_docs" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="installer" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="opencloud" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/01_docs/02_云计算平台/03_安装文档/installer_tool/src" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="RUN_TOOL" value="" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/01_docs/02_云计算平台/03_安装文档/installer_tool/src/installer.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.installer" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.30387.90" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="5d8ae099-ff3b-4d46-ae7d-4f82e323dc0c" name="更改" comment="" />
+      <created>1771904028370</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1771904028370</updated>
+      <workItem from="1771904034026" duration="811000" />
+      <workItem from="1771982483205" duration="442000" />
+      <workItem from="1771982951948" duration="2000" />
+    </task>
+    <task id="LOCAL-00001" summary="create">
+      <option name="closed" value="true" />
+      <created>1774926861093</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1774926861093</updated>
+    </task>
+    <task id="LOCAL-00002" summary="fix">
+      <option name="closed" value="true" />
+      <created>1774926962655</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1774926962655</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="create" />
+    <MESSAGE value="fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix" />
+  </component>
+</project>
