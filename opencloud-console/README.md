@@ -116,7 +116,7 @@ OpenCloud Console 是 OpenCloud 开源云计算平台的统一管理控制台，
 #### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/your-org/opencloud.git
+git clone https://github.com/qoobots/opencloud.git
 cd opencloud/opencloud-console
 ```
 
@@ -490,8 +490,8 @@ git commit -m "fix: 修复用户登录时的 token 过期问题"
 
 如果您发现了 Bug 或有功能建议，请通过以下方式反馈：
 
-- [GitHub Issues](https://github.com/your-org/opencloud/issues)
-- [GitHub Discussions](https://github.com/your-org/opencloud/discussions)
+- [GitHub Issues](https://github.com/qoobots/opencloud/issues)
+- [GitHub Discussions](https://github.com/qoobots/opencloud/discussions)
 
 反馈问题时，请提供以下信息：
 
@@ -559,9 +559,9 @@ OpenCloud Console 的开发和维护离不开以下开源项目的支持：
 
 ## 📮 联系我们
 
-- **GitHub**: https://github.com/your-org/opencloud
-- **Issues**: https://github.com/your-org/opencloud/issues
-- **Discussions**: https://github.com/your-org/opencloud/discussions
+- **GitHub**: https://github.com/qoobots/opencloud
+- **Issues**: https://github.com/qoobots/opencloud/issues
+- **Discussions**: https://github.com/qoobots/opencloud/discussions
 - **邮箱**: dev@opencloud.io
 
 ---
