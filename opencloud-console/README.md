@@ -562,7 +562,7 @@ OpenCloud Console 的开发和维护离不开以下开源项目的支持：
 - **GitHub**: https://github.com/qoobots/opencloud
 - **Issues**: https://github.com/qoobots/opencloud/issues
 - **Discussions**: https://github.com/qoobots/opencloud/discussions
-- **邮箱**: dev@opencloud.io
+- **邮箱**: hello@qoobot.com
 
 ---
 
